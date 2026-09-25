@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Facets from "@/components/Facets";
 import RepoCard from "@/components/RepoCard";
 import SearchBox from "@/components/SearchBox";
+import Pagination from "@/components/Pagination";
 import { search } from "@/lib/api";
 import { toSearchParams, withParams } from "@/lib/params";
 
@@ -32,7 +33,6 @@ export default async function Home(props: PageProps<"/">) {
   if (!result) return null;
 
   const sort = params.get("sort") ?? "relevance";
-  const totalPages = Math.max(1, Math.ceil(Math.min(result.total, 10_000) / result.size));
   const activeFilters = ["language", "license", "topic", "min_stars", "max_stars", "pushed_within"].some((k) => params.has(k));
 
   return (
@@ -83,27 +83,7 @@ export default async function Home(props: PageProps<"/">) {
             </div>
           )}
 
-          {totalPages > 1 && (
-            <nav className="mt-6 flex items-center justify-center gap-4 text-sm" aria-label="Pagination">
-              {result.page > 1 ? (
-                <Link href={withParams(params, { page: String(result.page - 1) })} className="text-accent hover:underline">
-                  ← Previous
-                </Link>
-              ) : (
-                <span className="text-muted">← Previous</span>
-              )}
-              <span className="text-muted">
-                Page {result.page} of {totalPages.toLocaleString()}
-              </span>
-              {result.page < totalPages ? (
-                <Link href={withParams(params, { page: String(result.page + 1) })} className="text-accent hover:underline">
-                  Next →
-                </Link>
-              ) : (
-                <span className="text-muted">Next →</span>
-              )}
-            </nav>
-          )}
+          <Pagination result={result} params={params} />
         </section>
       </div>
     </>

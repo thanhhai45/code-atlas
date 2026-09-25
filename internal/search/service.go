@@ -37,6 +37,9 @@ type Result struct {
 	TookMS int                 `json:"took_ms"`
 	Hits   []Hit               `json:"hits"`
 	Facets map[string][]Bucket `json:"facets"`
+	// NextCursor continues after the last hit with search_after. It is set
+	// whenever the page is full, including pages reached with from+size.
+	NextCursor string `json:"next_cursor,omitempty"`
 }
 
 type esHit struct {
@@ -44,6 +47,7 @@ type esHit struct {
 	Score     *float64            `json:"_score"`
 	Source    Hit                 `json:"_source"`
 	Highlight map[string][]string `json:"highlight"`
+	Sort      []json.Number       `json:"sort"`
 }
 
 type esResponse struct {
@@ -95,6 +99,18 @@ func (c *Client) Search(ctx context.Context, p Params) (Result, error) {
 		TookMS: res.Took,
 		Hits:   res.hits(),
 		Facets: map[string][]Bucket{},
+	}
+	if n := len(res.Hits.Hits); n > 0 && n == p.Size {
+		last := res.Hits.Hits[n-1].Sort
+		values := make([]any, len(last))
+		for i, v := range last {
+			values[i] = v
+		}
+		next, err := EncodeCursor(sortName(p), values)
+		if err != nil {
+			return Result{}, err
+		}
+		out.NextCursor = next
 	}
 	for name, agg := range res.Aggregations {
 		buckets := []Bucket{}

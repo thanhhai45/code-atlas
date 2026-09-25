@@ -75,6 +75,26 @@ tie-breakers between similarly relevant repositories; they no longer multiply th
 `search.DefaultSignals`, chosen with `rankeval -grid` (docs/experiments/03-business-signal-tuning.md).
 Sum-mode weights depend on the BM25 score scale, which grows with corpus size, so re-tune after large data changes.
 
+### Pagination
+
+`from + size` is limited by `index.max_result_window` (10,000): Elasticsearch has to collect and sort
+`from + size` hits on every shard, so deep offsets get slower and are eventually rejected. Beyond that,
+the API uses `search_after`:
+
+- Every sort ends with the unique `id` as a tiebreaker (`_score, stars, id` for relevance), so the order is total
+  and a page boundary is unambiguous.
+- Every full page returns `next_cursor`: base64url JSON holding the effective sort name and the last hit's sort
+  values, kept as exact numbers. The API decodes it into `search_after` and rejects a cursor from another sort order.
+- `page` keeps working inside the window, and cursors work from any page, so the UI shows page numbers first
+  and switches to cursors at the window edge. A cursor page has no page number and no "previous" (search_after only
+  moves forward); the UI offers "first page" instead.
+- Cursor pages are not a snapshot. A repository indexed or re-ranked between requests can appear twice or be
+  skipped, and recency scores drift slowly over time. A point-in-time (PIT) reader would fix this at the cost of
+  server-side state per paging session; it is not needed for browsing.
+
+`internal/search/integration_test.go` (`make test-integration`, and the CI relevance job) checks that paging
+through every sort order with cursors visits exactly the documents, in exactly the order, of one large page.
+
 ## Caching
 
 `/search` responses are cached in Redis for `SEARCH_CACHE_TTL_SECONDS` (default 60) under a hash of the

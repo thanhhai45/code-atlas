@@ -29,6 +29,8 @@ export type SearchResult = {
   took_ms: number;
   hits: Hit[];
   facets: Record<string, Bucket[]>;
+  /** search_after cursor for the next page; absent on the last page. */
+  next_cursor?: string;
 };
 
 export type Repository = Omit<Hit, "score" | "highlight"> & {

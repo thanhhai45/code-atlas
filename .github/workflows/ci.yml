@@ -42,8 +42,9 @@ jobs:
       - run: docker compose build
 
   relevance:
-    # Seeds a real Elasticsearch with testdata/ and fails if ranking quality
-    # drops below the recorded baseline (docs/experiments/02-ranking-evaluation.md).
+    # Seeds a real Elasticsearch with testdata/, fails if ranking quality drops
+    # below the recorded baseline (docs/experiments/03-business-signal-tuning.md),
+    # and runs the integration tests that need a live index.
     runs-on: ubuntu-latest
     services:
       elasticsearch:
@@ -74,3 +75,5 @@ jobs:
           go-version-file: go.mod
       - run: go run ./cmd/crawler -seed testdata/seed_repositories.json
       - run: go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
+      - name: Search integration tests (search_after pagination)
+        run: go test -count=1 -tags integration ./internal/search/

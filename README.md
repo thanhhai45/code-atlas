@@ -75,7 +75,11 @@ go run ./cmd/crawler -seed testdata/seed_repositories.json
 
 `/search` parameters: `q`, `language`, `license`, `topic` (repeatable or comma-separated),
 `min_stars`, `max_stars`, `pushed_within` (`30d` \| `90d` \| `1y`), `sort` (`relevance` \| `stars` \| `updated`),
-`page`, `size` (≤ 100), `include_archived`, `include_forks`.
+`page`, `size` (≤ 100), `cursor`, `include_archived`, `include_forks`.
+
+Pagination: `page` works up to the 10,000-result window. Every full page also returns `next_cursor`; pass it
+back as `cursor` (with the same query, filters and sort) to fetch the next page with `search_after`, at any depth.
+A cursor for a different sort order is rejected with 400.
 
 ```bash
 curl 'localhost:8080/search?q=vector+database&language=Go&min_stars=5000'
@@ -130,7 +134,8 @@ testdata/          Sample seed data and relevance judgments
 ## Development
 
 ```bash
-make test    # go test -race ./...
+make test              # go test -race ./...
+make test-integration  # tests that need the seeded Elasticsearch (search_after paging)
 make lint    # go vet, gofmt, eslint, tsc
 ```
 

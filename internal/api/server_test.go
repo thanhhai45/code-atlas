@@ -115,3 +115,30 @@ func TestRepositoryEndpoints(t *testing.T) {
 		t.Errorf("suggest: %d", w.Code)
 	}
 }
+
+func TestSearchCursor(t *testing.T) {
+	fs := &fakeSearch{}
+	r := (&Server{Repos: fakeRepos{}, Search: fs}).Router()
+
+	if w := do(t, r, "/search?q=orm&cursor=garbage"); w.Code != http.StatusBadRequest {
+		t.Fatalf("invalid cursor: got %d", w.Code)
+	}
+	if fs.calls != 0 {
+		t.Fatal("an invalid cursor must not reach Elasticsearch")
+	}
+
+	cur, err := search.EncodeCursor("relevance", []any{json.Number("2.5"), json.Number("40"), json.Number("9")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := do(t, r, "/search?q=orm&page=3&cursor="+cur); w.Code != http.StatusOK {
+		t.Fatalf("valid cursor: got %d %s", w.Code, w.Body)
+	}
+	if len(fs.last.SearchAfter) != 3 || fs.last.Page != 1 {
+		t.Errorf("cursor not applied: %+v", fs.last)
+	}
+	// A cursor issued for relevance order is rejected for stars order.
+	if w := do(t, r, "/search?q=orm&sort=stars&cursor="+cur); w.Code != http.StatusBadRequest {
+		t.Errorf("mismatched sort: got %d", w.Code)
+	}
+}
