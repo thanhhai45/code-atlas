@@ -1,0 +1,78 @@
+# Local stack: PostgreSQL (source of truth), Redis (cache), Elasticsearch (search),
+# the Go API and the Next.js UI. The crawler is a one-off job:
+#   docker compose run --rm crawler -seed testdata/seed_repositories.json
+#   docker compose run --rm crawler -min-stars 1000 -max 10000
+name: code-atlas
+
+x-go-env: &go-env
+  DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas?sslmode=disable
+  REDIS_URL: redis://redis:6379/0
+  ELASTICSEARCH_URL: http://elasticsearch:9200
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas
+      POSTGRES_DB: atlas
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+
+  elasticsearch:
+    image: elasticsearch:8.15.3
+    environment:
+      discovery.type: single-node
+      # Local development only. Production must enable security + TLS.
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms1g -Xmx1g
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+    ports: ["9200:9200"]
+    volumes: [esdata:/usr/share/elasticsearch/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 10s
+      retries: 30
+
+  api:
+    build: { context: ., dockerfile: infrastructure/docker/go.Dockerfile }
+    environment: *go-env
+    ports: ["8080:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      elasticsearch: { condition: service_healthy }
+
+  crawler:
+    build: { context: ., dockerfile: infrastructure/docker/go.Dockerfile }
+    entrypoint: ["crawler"]
+    environment: *go-env
+    profiles: [tools]
+    depends_on:
+      postgres: { condition: service_healthy }
+      elasticsearch: { condition: service_healthy }
+
+  web:
+    build: { context: ./web }
+    environment:
+      API_URL: http://api:8080
+    ports: ["3000:3000"]
+    depends_on: [api]
+
+volumes:
+  pgdata:
+  esdata:
