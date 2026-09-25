@@ -40,3 +40,37 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose build
+
+  relevance:
+    # Seeds a real Elasticsearch with testdata/ and fails if ranking quality
+    # drops below the recorded baseline (docs/experiments/02-ranking-evaluation.md).
+    runs-on: ubuntu-latest
+    services:
+      elasticsearch:
+        image: elasticsearch:8.15.3
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: "false"
+          ES_JAVA_OPTS: -Xms1g -Xmx1g
+          # Runner disks are often above the default watermarks.
+          cluster.routing.allocation.disk.threshold_enabled: "false"
+        ports: ["9200:9200"]
+        options: >-
+          --health-cmd "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow"
+          --health-interval 10s --health-retries 30
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: atlas
+          POSTGRES_PASSWORD: atlas
+          POSTGRES_DB: atlas
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U atlas" --health-interval 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go run ./cmd/crawler -seed testdata/seed_repositories.json
+      - run: go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80

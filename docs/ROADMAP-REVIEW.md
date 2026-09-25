@@ -96,13 +96,13 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 1 | Crawler GitHub: pagination, rate limit (primary + secondary), retry/backoff, idempotent upsert, bulk index, star cursor vượt giới hạn 1000 | ✅ |
 | 3 | Mapping `dynamic: strict`, custom analyzers (word_delimiter cho tên repo, synonyms lúc search), keyword normalizer | ✅ |
 | 4 | Bool query must/filter, terms/range filters | ✅ |
-| 5 | Field boosts + function_score (log stars + gauss decay theo pushed_at) — cần tune bằng `_rank_eval` | 🟡 baseline |
+| 5 | Field boosts + function_score (log stars + gauss decay theo pushed_at); judgment list 30 query + `cmd/rankeval` (`_rank_eval`: NDCG, MRR, precision, recall), baseline và cổng chặn regression trong CI — xem `docs/experiments/02-ranking-evaluation.md` | 🟡 đã đo, chưa tune |
 | 6 | Autocomplete (search_as_you_type), fuzzy, synonyms, highlight; from/size (search_after: TODO) | 🟡 |
 | 7 | Facets multi-select đúng chuẩn (post_filter + filter agg), stars range, activity date_range | ✅ |
 | 9 | Similar repositories bằng `more_like_this` (baseline lexical để so với vector sau này) | 🟡 baseline |
 | 13 | Versioned index + alias swap reindex | ✅ (sớm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
-Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token, (2) viết `docs/experiments/01-fundamentals.md`
-và `02-mapping-analyzer.md`, (3) tạo judgment list + `_rank_eval`, (4) `search_after`, (5) chia query theo
-`created:` khi star cursor bị kẹt.
+Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune trọng số
+business signals dựa trên `rankeval`, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) `search_after`,
+(5) chia query theo `created:` khi star cursor bị kẹt.

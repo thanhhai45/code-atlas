@@ -28,6 +28,8 @@ GitHub API ──► crawler (Go) ──► PostgreSQL (source of truth)
 - **Crawler**: GitHub pagination, primary/secondary rate limits, retry with backoff + jitter,
   idempotent upserts, bulk indexing, "star cursor" to get past the 1000-results-per-query cap
 - **Zero-downtime reindex**: build a new versioned index from PostgreSQL, then swap the alias atomically
+- **Relevance evaluation**: a graded judgment list (`testdata/judgments.json`) scored with the
+  Elasticsearch Ranking Evaluation API (NDCG, MRR, precision, recall); CI fails on regressions
 - **Observability**: Prometheus `/metrics` (HTTP latency, ES `took`, cache hit rate), `/health`
 
 ## Quick start
@@ -94,11 +96,24 @@ crawler [flags]
 
 Every run is recorded in the `crawl_runs` table (fetched / indexed / failed / status).
 
+## Relevance evaluation
+
+```bash
+make seed
+make rankeval    # NDCG@10, MRR@10, precision@5, recall@10 for the default and BM25-only rankings
+```
+
+`cmd/rankeval` runs every query in `testdata/judgments.json` through `_rank_eval`, prints overall and
+per-query scores, lists unrated documents that appear in the top 10 (judge them and add them to the
+file), and exits non-zero below `-min-ndcg` / `-min-recall`. Baseline and experiments:
+[`docs/experiments/02-ranking-evaluation.md`](docs/experiments/02-ranking-evaluation.md).
+
 ## Repository layout
 
 ```text
 cmd/api            HTTP API entrypoint
 cmd/crawler        GitHub ingestion + reindex entrypoint
+cmd/rankeval       Relevance evaluation against a judgment list
 internal/api       Gin handlers
 internal/search    Elasticsearch client, index definition (index.json), query builder
 internal/github    GitHub REST client (pagination, rate limits, retries)
@@ -108,7 +123,7 @@ internal/metrics   Prometheus instruments
 web/               Next.js + TypeScript + Tailwind UI
 infrastructure/    Dockerfiles (Terraform/AWS later)
 docs/              Roadmap, review, architecture, experiments, benchmarks, incidents
-testdata/          Sample seed data
+testdata/          Sample seed data and relevance judgments
 ```
 
 ## Development
