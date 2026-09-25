@@ -1,0 +1,396 @@
+{
+  "description": "Graded relevance judgments for testdata/seed_repositories.json. Extend this list whenever rankeval reports unrated documents in the top k, and whenever the dataset changes.",
+  "scale": "0 = irrelevant, 1 = marginally relevant, 2 = relevant, 3 = exactly what the user wants",
+  "queries": [
+    {
+      "id": "go-vector-databases",
+      "intent": "Roadmap example: open-source Go vector databases",
+      "params": {
+        "q": "vector database",
+        "language": [
+          "Go"
+        ]
+      },
+      "ratings": {
+        "milvus-io/milvus": 3,
+        "weaviate/weaviate": 3
+      }
+    },
+    {
+      "id": "vector-database",
+      "intent": "Vector databases in any language",
+      "params": {
+        "q": "vector database"
+      },
+      "ratings": {
+        "milvus-io/milvus": 3,
+        "qdrant/qdrant": 3,
+        "weaviate/weaviate": 3,
+        "chroma-core/chroma": 3,
+        "pgvector/pgvector": 2,
+        "facebookresearch/faiss": 2,
+        "redis/redis": 1
+      }
+    },
+    {
+      "id": "ruby-elasticsearch-mit",
+      "intent": "Roadmap example: Ruby libraries for Elasticsearch with an MIT license",
+      "params": {
+        "q": "elasticsearch",
+        "language": [
+          "Ruby"
+        ],
+        "license": [
+          "MIT"
+        ]
+      },
+      "ratings": {
+        "ankane/searchkick": 3
+      }
+    },
+    {
+      "id": "rag-framework-5k",
+      "intent": "Roadmap example: RAG frameworks with more than 5K stars",
+      "params": {
+        "q": "rag framework",
+        "min_stars": 5000
+      },
+      "ratings": {
+        "run-llama/llama_index": 3,
+        "langchain-ai/langchain": 3,
+        "deepset-ai/haystack": 3,
+        "infiniflow/ragflow": 2,
+        "chroma-core/chroma": 1
+      }
+    },
+    {
+      "id": "event-driven-active",
+      "intent": "Roadmap example: recently active projects for event-driven architecture",
+      "params": {
+        "q": "event driven",
+        "pushed_within": "90d"
+      },
+      "ratings": {
+        "ThreeDotsLabs/watermill": 3,
+        "apache/kafka": 3,
+        "nats-io/nats-server": 3
+      }
+    },
+    {
+      "id": "elasticsearch",
+      "intent": "Navigational: Elasticsearch itself first, then its clients",
+      "params": {
+        "q": "elasticsearch"
+      },
+      "ratings": {
+        "elastic/elasticsearch": 3,
+        "elastic/go-elasticsearch": 2,
+        "elastic/elasticsearch-ruby": 2,
+        "opensearch-project/OpenSearch": 2,
+        "ankane/searchkick": 1,
+        "zincsearch/zincsearch": 1,
+        "typesense/typesense": 1
+      }
+    },
+    {
+      "id": "elasticsearch-typo",
+      "intent": "Typo tolerance: misspelled elasticsearch",
+      "params": {
+        "q": "elastisearch"
+      },
+      "ratings": {
+        "elastic/elasticsearch": 3,
+        "elastic/go-elasticsearch": 2,
+        "elastic/elasticsearch-ruby": 2,
+        "opensearch-project/OpenSearch": 1,
+        "ankane/searchkick": 1,
+        "zincsearch/zincsearch": 1,
+        "typesense/typesense": 1
+      }
+    },
+    {
+      "id": "elasticsearch-alternative",
+      "intent": "Alternatives to Elasticsearch",
+      "params": {
+        "q": "elasticsearch alternative"
+      },
+      "ratings": {
+        "zincsearch/zincsearch": 3,
+        "typesense/typesense": 3,
+        "meilisearch/meilisearch": 3,
+        "opensearch-project/OpenSearch": 3,
+        "quickwit-oss/tantivy": 1,
+        "blevesearch/bleve": 1
+      }
+    },
+    {
+      "id": "rust-search-engine",
+      "intent": "Search engines written in Rust",
+      "params": {
+        "q": "search engine",
+        "language": [
+          "Rust"
+        ]
+      },
+      "ratings": {
+        "meilisearch/meilisearch": 3,
+        "quickwit-oss/tantivy": 3,
+        "qdrant/qdrant": 1
+      }
+    },
+    {
+      "id": "full-text-search-library",
+      "intent": "Embeddable full-text search libraries",
+      "params": {
+        "q": "full text search library"
+      },
+      "ratings": {
+        "quickwit-oss/tantivy": 3,
+        "blevesearch/bleve": 3,
+        "meilisearch/meilisearch": 1,
+        "typesense/typesense": 1,
+        "elastic/elasticsearch": 1
+      }
+    },
+    {
+      "id": "go-web-framework",
+      "intent": "Go HTTP web frameworks",
+      "params": {
+        "q": "web framework",
+        "language": [
+          "Go"
+        ]
+      },
+      "ratings": {
+        "gin-gonic/gin": 3,
+        "labstack/echo": 3,
+        "gofiber/fiber": 3
+      }
+    },
+    {
+      "id": "python-api-framework",
+      "intent": "Python frameworks for building APIs",
+      "params": {
+        "q": "python api framework"
+      },
+      "ratings": {
+        "tiangolo/fastapi": 3,
+        "run-llama/llama_index": 0,
+        "huggingface/transformers": 0,
+        "deepset-ai/haystack": 0,
+        "langchain-ai/langchain": 0
+      }
+    },
+    {
+      "id": "messaging",
+      "intent": "Messaging systems",
+      "params": {
+        "q": "messaging system"
+      },
+      "ratings": {
+        "nats-io/nats-server": 3,
+        "apache/kafka": 3,
+        "ThreeDotsLabs/watermill": 2,
+        "redis/redis": 1
+      }
+    },
+    {
+      "id": "go-orm",
+      "intent": "ORM libraries for Go",
+      "params": {
+        "q": "orm",
+        "language": [
+          "Go"
+        ]
+      },
+      "ratings": {
+        "go-gorm/gorm": 3
+      }
+    },
+    {
+      "id": "k8s-synonym",
+      "intent": "Synonym: k8s means kubernetes",
+      "params": {
+        "q": "k8s"
+      },
+      "ratings": {
+        "kubernetes/kubernetes": 3
+      }
+    },
+    {
+      "id": "monitoring",
+      "intent": "Monitoring and observability tools",
+      "params": {
+        "q": "monitoring"
+      },
+      "ratings": {
+        "prometheus/prometheus": 3,
+        "grafana/grafana": 3,
+        "grafana/loki": 2,
+        "open-telemetry/opentelemetry-go": 2
+      }
+    },
+    {
+      "id": "logging",
+      "intent": "Log aggregation and log search",
+      "params": {
+        "q": "logs"
+      },
+      "ratings": {
+        "grafana/loki": 3,
+        "zincsearch/zincsearch": 2,
+        "grafana/grafana": 1
+      }
+    },
+    {
+      "id": "run-llm-locally",
+      "intent": "Run large language models on your own machine",
+      "params": {
+        "q": "run llm locally"
+      },
+      "ratings": {
+        "ollama/ollama": 3,
+        "ggml-org/llama.cpp": 3,
+        "huggingface/transformers": 1
+      }
+    },
+    {
+      "id": "text-embeddings",
+      "intent": "Text embedding models and stores",
+      "params": {
+        "q": "text embeddings"
+      },
+      "ratings": {
+        "UKPLab/sentence-transformers": 3,
+        "chroma-core/chroma": 2,
+        "milvus-io/milvus": 1,
+        "qdrant/qdrant": 1,
+        "pgvector/pgvector": 1
+      }
+    },
+    {
+      "id": "similarity-search",
+      "intent": "Vector similarity search",
+      "params": {
+        "q": "similarity search"
+      },
+      "ratings": {
+        "facebookresearch/faiss": 3,
+        "pgvector/pgvector": 3,
+        "milvus-io/milvus": 3,
+        "qdrant/qdrant": 2,
+        "weaviate/weaviate": 2
+      }
+    },
+    {
+      "id": "postgres",
+      "intent": "PostgreSQL and its ecosystem",
+      "params": {
+        "q": "postgres"
+      },
+      "ratings": {
+        "postgres/postgres": 3,
+        "pgvector/pgvector": 2,
+        "cockroachdb/cockroach": 1
+      }
+    },
+    {
+      "id": "go-cli",
+      "intent": "Libraries for building CLIs in Go",
+      "params": {
+        "q": "cli",
+        "language": [
+          "Go"
+        ]
+      },
+      "ratings": {
+        "spf13/cobra": 3,
+        "junegunn/fzf": 2
+      }
+    },
+    {
+      "id": "fuzzy-finder",
+      "intent": "Command-line fuzzy finders",
+      "params": {
+        "q": "fuzzy finder"
+      },
+      "ratings": {
+        "junegunn/fzf": 3
+      }
+    },
+    {
+      "id": "code-search",
+      "intent": "Searching source code",
+      "params": {
+        "q": "code search"
+      },
+      "ratings": {
+        "sourcegraph/zoekt": 3,
+        "BurntSushi/ripgrep": 2
+      }
+    },
+    {
+      "id": "css-framework",
+      "intent": "CSS frameworks",
+      "params": {
+        "q": "css framework"
+      },
+      "ratings": {
+        "tailwindlabs/tailwindcss": 3
+      }
+    },
+    {
+      "id": "react-framework",
+      "intent": "React frameworks",
+      "params": {
+        "q": "react framework"
+      },
+      "ratings": {
+        "vercel/next.js": 3
+      }
+    },
+    {
+      "id": "infrastructure-as-code",
+      "intent": "Infrastructure as code tools",
+      "params": {
+        "q": "infrastructure as code"
+      },
+      "ratings": {
+        "hashicorp/terraform": 3
+      }
+    },
+    {
+      "id": "distributed-sql",
+      "intent": "Distributed SQL databases",
+      "params": {
+        "q": "distributed sql database"
+      },
+      "ratings": {
+        "cockroachdb/cockroach": 3,
+        "postgres/postgres": 1
+      }
+    },
+    {
+      "id": "machine-learning",
+      "intent": "Machine learning libraries",
+      "params": {
+        "q": "machine learning"
+      },
+      "ratings": {
+        "huggingface/transformers": 3,
+        "UKPLab/sentence-transformers": 2,
+        "facebookresearch/faiss": 1
+      }
+    },
+    {
+      "id": "package-metadata",
+      "intent": "Open-source package and dependency metadata",
+      "params": {
+        "q": "package dependency metadata"
+      },
+      "ratings": {
+        "ecosyste-ms/packages": 3
+      }
+    }
+  ]
+}

@@ -190,26 +190,48 @@ func withBusinessSignals(q map[string]any) map[string]any {
 	}
 }
 
-// BuildSearchQuery turns Params into an Elasticsearch _search body.
-func BuildSearchQuery(p Params) map[string]any {
-	p.Normalize()
+// RankingOptions toggles ranking components so their effect can be measured
+// with the Ranking Evaluation API (see cmd/rankeval).
+type RankingOptions struct {
+	// DisableBusinessSignals scores by text relevance (BM25) only.
+	DisableBusinessSignals bool
+}
 
-	base := []any{}
+// buildQuery returns the "query" part of a search. extraFilters are added as
+// non-scoring filters (used by rank evaluation, which does not support post_filter).
+func buildQuery(p Params, opts RankingOptions, extraFilters []any) map[string]any {
+	filters := []any{}
 	if !p.IncludeArchived {
-		base = append(base, map[string]any{"term": map[string]any{"archived": false}})
+		filters = append(filters, map[string]any{"term": map[string]any{"archived": false}})
 	}
 	if !p.IncludeForks {
-		base = append(base, map[string]any{"term": map[string]any{"fork": false}})
+		filters = append(filters, map[string]any{"term": map[string]any{"fork": false}})
 	}
+	filters = append(filters, extraFilters...)
 
-	boolQuery := map[string]any{"filter": base}
+	boolQuery := map[string]any{"filter": filters}
 	if p.Query != "" {
 		boolQuery["must"] = []any{textQuery(p.Query)}
 	}
-	var query map[string]any = map[string]any{"bool": boolQuery}
-	if p.Query != "" && p.Sort == "relevance" {
+	query := map[string]any{"bool": boolQuery}
+	if p.Query != "" && p.Sort == "relevance" && !opts.DisableBusinessSignals {
 		query = withBusinessSignals(query)
 	}
+	return query
+}
+
+// BuildRankEvalRequest returns the request used for one _rank_eval query. It
+// scores exactly like BuildSearchQuery, but folds facet filters into the query
+// (same hit set as post_filter) because _rank_eval only accepts a query.
+func BuildRankEvalRequest(p Params, opts RankingOptions) map[string]any {
+	p.Normalize()
+	return map[string]any{"query": buildQuery(p, opts, filterValues(p.facetFilters(), ""))}
+}
+
+// BuildSearchQuery turns Params into an Elasticsearch _search body.
+func BuildSearchQuery(p Params) map[string]any {
+	p.Normalize()
+	query := buildQuery(p, RankingOptions{}, nil)
 
 	facets := p.facetFilters()
 	body := map[string]any{

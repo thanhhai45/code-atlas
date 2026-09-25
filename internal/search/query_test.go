@@ -143,3 +143,37 @@ func TestIndexDefinitionIsValidJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildRankEvalRequestFoldsFacetsIntoQuery(t *testing.T) {
+	min := 5000
+	p := Params{Query: "rag framework", Languages: []string{"Python"}, MinStars: &min}
+	req := BuildRankEvalRequest(p, RankingOptions{})
+	if len(req) != 1 {
+		t.Fatalf("_rank_eval accepts only a query, got keys %v", req)
+	}
+	q := toJSON(t, req["query"])
+	for _, want := range []string{"function_score", `{"terms":{"language":["Python"]}}`, `{"range":{"stars":{"gte":5000}}}`} {
+		if !strings.Contains(q, want) {
+			t.Errorf("rank eval query missing %s: %s", want, q)
+		}
+	}
+	// Without facet filters it must be exactly the live search query.
+	plain := Params{Query: "rag framework"}
+	if got, want := toJSON(t, BuildRankEvalRequest(plain, RankingOptions{})["query"]), toJSON(t, BuildSearchQuery(plain)["query"]); got != want {
+		t.Errorf("rank eval and live queries diverge:\n%s\n%s", got, want)
+	}
+
+	bm25 := toJSON(t, BuildRankEvalRequest(p, RankingOptions{DisableBusinessSignals: true})["query"])
+	if strings.Contains(bm25, "function_score") {
+		t.Error("DisableBusinessSignals must drop function_score")
+	}
+}
+
+func TestMetricName(t *testing.T) {
+	cases := map[string]map[string]any{"ndcg@10": NDCG(10), "mrr@10": MRR(10), "precision@5": Precision(5), "recall@20": Recall(20)}
+	for want, m := range cases {
+		if got := MetricName(m); got != want {
+			t.Errorf("MetricName = %q, want %q", got, want)
+		}
+	}
+}

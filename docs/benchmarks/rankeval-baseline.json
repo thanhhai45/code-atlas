@@ -1,0 +1,385 @@
+{
+  "index": "repositories_20260925t170811",
+  "queries": 30,
+  "metrics": {
+    "bm25_only": {
+      "mrr@10": 1,
+      "ndcg@10": 0.9828440412962587,
+      "precision@5": 0.8955555555555555,
+      "recall@10": 0.8366666666666667
+    },
+    "default": {
+      "mrr@10": 0.9833333333333333,
+      "ndcg@10": 0.9824135319596323,
+      "precision@5": 0.8955555555555555,
+      "recall@10": 0.8366666666666667
+    }
+  },
+  "per_query": {
+    "bm25_only": {
+      "code-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "css-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "distributed-sql": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.5,
+        "recall@10": 1
+      },
+      "elasticsearch": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9306918645531987,
+        "precision@5": 0.6,
+        "recall@10": 0.75
+      },
+      "elasticsearch-alternative": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "elasticsearch-typo": {
+        "mrr@10": 1,
+        "ndcg@10": 0.8270872315237825,
+        "precision@5": 0.6,
+        "recall@10": 1
+      },
+      "event-driven-active": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "full-text-search-library": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.5,
+        "recall@10": 1
+      },
+      "fuzzy-finder": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-cli": {
+        "mrr@10": 1,
+        "ndcg@10": 0.8339912323981489,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-orm": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-vector-databases": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-web-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "infrastructure-as-code": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "k8s-synonym": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "logging": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "machine-learning": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "messaging": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
+      },
+      "monitoring": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "package-metadata": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "postgres": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "python-api-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@10": 1
+      },
+      "rag-framework-5k": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.75
+      },
+      "react-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "ruby-elasticsearch-mit": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "run-llm-locally": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "rust-search-engine": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9340764506431117,
+        "precision@5": 0.6666666666666666,
+        "recall@10": 1
+      },
+      "similarity-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.6
+      },
+      "text-embeddings": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "vector-database": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9594744597695195,
+        "precision@5": 0.8,
+        "recall@10": 0.6666666666666666
+      }
+    },
+    "default": {
+      "code-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "css-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "distributed-sql": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.5,
+        "recall@10": 1
+      },
+      "elasticsearch": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9306918645531987,
+        "precision@5": 0.6,
+        "recall@10": 0.75
+      },
+      "elasticsearch-alternative": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "elasticsearch-typo": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.6,
+        "recall@10": 1
+      },
+      "event-driven-active": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "full-text-search-library": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.5,
+        "recall@10": 1
+      },
+      "fuzzy-finder": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-cli": {
+        "mrr@10": 1,
+        "ndcg@10": 0.8339912323981489,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-orm": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-vector-databases": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "go-web-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "infrastructure-as-code": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "k8s-synonym": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "logging": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "machine-learning": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "messaging": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
+      },
+      "monitoring": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "package-metadata": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "postgres": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "python-api-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 0.2,
+        "recall@10": 1
+      },
+      "rag-framework-5k": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.75
+      },
+      "react-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "ruby-elasticsearch-mit": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "run-llm-locally": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "rust-search-engine": {
+        "mrr@10": 0.5,
+        "ndcg@10": 0.7482484020681008,
+        "precision@5": 0.6666666666666666,
+        "recall@10": 1
+      },
+      "similarity-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.6
+      },
+      "text-embeddings": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.5
+      },
+      "vector-database": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9594744597695195,
+        "precision@5": 0.8,
+        "recall@10": 0.6666666666666666
+      }
+    }
+  },
+  "unrated": {}
+}

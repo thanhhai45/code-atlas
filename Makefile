@@ -1,4 +1,4 @@
-.PHONY: help up down logs seed crawl reindex test lint build dev-api dev-web
+.PHONY: help up down logs seed crawl reindex rankeval test lint build dev-api dev-web
 
 CRAWL_MIN_STARS ?= 1000
 CRAWL_MAX ?= 10000
@@ -23,6 +23,9 @@ crawl: ## Crawl GitHub (set GITHUB_TOKEN in .env)
 
 reindex: ## Rebuild the index from PostgreSQL and swap the alias
 	docker compose run --rm crawler -reindex
+
+rankeval: ## Measure relevance against testdata/judgments.json (needs make seed)
+	go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
 
 test: ## Run Go tests
 	go test -race ./...
