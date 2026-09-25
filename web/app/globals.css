@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f8fa;
+  --surface: #ffffff;
+  --foreground: #1b1f24;
+  --muted: #5d6673;
+  --border: #dde1e6;
+  --accent: #1f6feb;
+  --warn: #9a6700;
+  --mark: #fff1a8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #0d1117;
+    --surface: #151b23;
+    --foreground: #e6edf3;
+    --muted: #9198a1;
+    --border: #2f3742;
+    --accent: #4493f8;
+    --warn: #d29922;
+    --mark: #6e5a00;
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #0d1117;
+  --surface: #151b23;
+  --foreground: #e6edf3;
+  --muted: #9198a1;
+  --border: #2f3742;
+  --accent: #4493f8;
+  --warn: #d29922;
+  --mark: #6e5a00;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+mark {
+  background: var(--mark);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}

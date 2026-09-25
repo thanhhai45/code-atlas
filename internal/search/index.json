@@ -1,0 +1,124 @@
+{
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0,
+    "refresh_interval": "1s",
+    "analysis": {
+      "filter": {
+        "name_word_delimiter": {
+          "type": "word_delimiter_graph",
+          "preserve_original": true,
+          "split_on_case_change": true,
+          "split_on_numerics": false,
+          "stem_english_possessive": false
+        },
+        "tech_synonyms": {
+          "type": "synonym_graph",
+          "synonyms": [
+            "ai, artificial intelligence",
+            "ml, machine learning",
+            "llm, large language model",
+            "rag, retrieval augmented generation",
+            "nlp, natural language processing",
+            "k8s, kubernetes",
+            "js, javascript",
+            "ts, typescript",
+            "db, database",
+            "vectordb, vector database",
+            "orm, object relational mapping",
+            "cli, command line"
+          ]
+        }
+      },
+      "normalizer": {
+        "lowercase": {
+          "type": "custom",
+          "filter": ["lowercase", "asciifolding"]
+        }
+      },
+      "analyzer": {
+        "repo_text": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding"]
+        },
+        "repo_text_search": {
+          "type": "custom",
+          "tokenizer": "standard",
+          "filter": ["lowercase", "asciifolding", "tech_synonyms"]
+        },
+        "repo_name": {
+          "type": "custom",
+          "tokenizer": "whitespace",
+          "filter": ["name_word_delimiter", "flatten_graph", "lowercase", "asciifolding"]
+        },
+        "repo_name_search": {
+          "type": "custom",
+          "tokenizer": "whitespace",
+          "filter": ["name_word_delimiter", "lowercase", "asciifolding"]
+        }
+      }
+    }
+  },
+  "mappings": {
+    "dynamic": "strict",
+    "properties": {
+      "id": { "type": "long" },
+      "all_text": {
+        "type": "text",
+        "analyzer": "repo_text",
+        "search_analyzer": "repo_text_search"
+      },
+      "name": {
+        "type": "text",
+        "copy_to": "all_text",
+        "analyzer": "repo_name",
+        "search_analyzer": "repo_name_search",
+        "fields": {
+          "keyword": { "type": "keyword", "normalizer": "lowercase" }
+        }
+      },
+      "full_name": {
+        "type": "text",
+        "analyzer": "repo_name",
+        "search_analyzer": "repo_name_search",
+        "fields": {
+          "keyword": { "type": "keyword", "normalizer": "lowercase" },
+          "suggest": { "type": "search_as_you_type", "analyzer": "repo_text" }
+        }
+      },
+      "owner": { "type": "keyword", "normalizer": "lowercase" },
+      "description": {
+        "type": "text",
+        "copy_to": "all_text",
+        "analyzer": "repo_text",
+        "search_analyzer": "repo_text_search"
+      },
+      "readme": {
+        "type": "text",
+        "copy_to": "all_text",
+        "analyzer": "repo_text",
+        "search_analyzer": "repo_text_search"
+      },
+      "url": { "type": "keyword", "index": false },
+      "homepage": { "type": "keyword", "index": false },
+      "language": { "type": "keyword", "copy_to": "all_text" },
+      "topics": { "type": "keyword", "copy_to": "all_text" },
+      "license": { "type": "keyword" },
+      "license_name": { "type": "keyword", "index": false },
+      "stars": { "type": "integer" },
+      "forks": { "type": "integer" },
+      "watchers": { "type": "integer" },
+      "open_issues": { "type": "integer" },
+      "default_branch": { "type": "keyword", "index": false },
+      "archived": { "type": "boolean" },
+      "fork": { "type": "boolean" },
+      "created_at": { "type": "date" },
+      "updated_at": { "type": "date" },
+      "pushed_at": { "type": "date" },
+      "categories": { "type": "keyword" },
+      "technologies": { "type": "keyword" },
+      "use_cases": { "type": "keyword" }
+    }
+  }
+}
