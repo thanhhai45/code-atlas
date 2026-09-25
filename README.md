@@ -20,7 +20,7 @@ GitHub API ──► crawler (Go) ──► PostgreSQL (source of truth)
 
 - **Full-text search** with field boosts, phrase boost, fuzzy matching (`elastisearch` → elasticsearch)
   and tech synonyms (`k8s` ↔ kubernetes, `llm` ↔ large language model, …)
-- **Ranking**: BM25 × (log stars + recency decay) via `function_score`
+- **Ranking**: BM25 + small popularity and recency tie-breakers via `function_score`, weights tuned with `rankeval -grid`
 - **Multi-select facets**: language, license, topics, star ranges, activity — counts stay correct
   when filters are selected (`post_filter` + per-facet filter aggregations)
 - **Autocomplete** (`search_as_you_type`), **highlighting**, sorting, pagination
@@ -105,7 +105,8 @@ make rankeval    # NDCG@10, MRR@10, precision@5, recall@10 for the default and B
 
 `cmd/rankeval` runs every query in `testdata/judgments.json` through `_rank_eval`, prints overall and
 per-query scores, lists unrated documents that appear in the top 10 (judge them and add them to the
-file), and exits non-zero below `-min-ndcg` / `-min-recall`. Baseline and experiments:
+file), and exits non-zero below `-min-ndcg` / `-min-recall`. `-grid` also evaluates 30 business-signal
+weightings and reports the best one ([experiment 03](docs/experiments/03-business-signal-tuning.md)). Baseline and experiments:
 [`docs/experiments/02-ranking-evaluation.md`](docs/experiments/02-ranking-evaluation.md).
 
 ## Repository layout

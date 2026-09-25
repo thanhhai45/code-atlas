@@ -1,5 +1,8 @@
 # Experiment 02: Ranking evaluation with a judgment list and `_rank_eval`
 
+> Historical record. The `default` ranking described here was later replaced; see
+> [03-business-signal-tuning.md](03-business-signal-tuning.md) for the current weights and baseline.
+
 Phase 5 of the roadmap: "benchmark and tune ranking" needs a ground truth first. This experiment
 sets up that ground truth, records a baseline, and uses it to evaluate two candidate changes.
 

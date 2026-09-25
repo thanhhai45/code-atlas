@@ -391,6 +391,135 @@
       "ratings": {
         "ecosyste-ms/packages": 3
       }
+    },
+    {
+      "id": "search-engine",
+      "intent": "Broad: search engines of any kind (popularity should break ties)",
+      "params": {
+        "q": "search engine"
+      },
+      "ratings": {
+        "elastic/elasticsearch": 3,
+        "opensearch-project/OpenSearch": 3,
+        "meilisearch/meilisearch": 3,
+        "typesense/typesense": 3,
+        "zincsearch/zincsearch": 3,
+        "quickwit-oss/tantivy": 2,
+        "sourcegraph/zoekt": 2,
+        "blevesearch/bleve": 1,
+        "qdrant/qdrant": 1
+      }
+    },
+    {
+      "id": "go-elasticsearch-client",
+      "intent": "Specific beats popular: the Go client, not Elasticsearch itself",
+      "params": {
+        "q": "go elasticsearch client"
+      },
+      "ratings": {
+        "elastic/go-elasticsearch": 3,
+        "elastic/elasticsearch-ruby": 1,
+        "elastic/elasticsearch": 1
+      }
+    },
+    {
+      "id": "postgres-vector-search",
+      "intent": "Specific beats popular: vector search inside Postgres",
+      "params": {
+        "q": "postgres vector search"
+      },
+      "ratings": {
+        "pgvector/pgvector": 3,
+        "postgres/postgres": 1,
+        "milvus-io/milvus": 1,
+        "qdrant/qdrant": 1,
+        "weaviate/weaviate": 1
+      }
+    },
+    {
+      "id": "llm-inference",
+      "intent": "LLM inference engines",
+      "params": {
+        "q": "llm inference"
+      },
+      "ratings": {
+        "ggml-org/llama.cpp": 3,
+        "ollama/ollama": 2,
+        "huggingface/transformers": 2
+      }
+    },
+    {
+      "id": "trigram-code-search",
+      "intent": "Specific beats popular: zoekt over ripgrep",
+      "params": {
+        "q": "trigram code search"
+      },
+      "ratings": {
+        "sourcegraph/zoekt": 3,
+        "BurntSushi/ripgrep": 1
+      }
+    },
+    {
+      "id": "kubernetes",
+      "intent": "Navigational",
+      "params": {
+        "q": "kubernetes"
+      },
+      "ratings": {
+        "kubernetes/kubernetes": 3
+      }
+    },
+    {
+      "id": "redis",
+      "intent": "Navigational",
+      "params": {
+        "q": "redis"
+      },
+      "ratings": {
+        "redis/redis": 3
+      }
+    },
+    {
+      "id": "grafana",
+      "intent": "Navigational with a related repo",
+      "params": {
+        "q": "grafana"
+      },
+      "ratings": {
+        "grafana/grafana": 3,
+        "grafana/loki": 2
+      }
+    },
+    {
+      "id": "http-router",
+      "intent": "HTTP routers / web frameworks",
+      "params": {
+        "q": "http router"
+      },
+      "ratings": {
+        "gin-gonic/gin": 3,
+        "labstack/echo": 2,
+        "gofiber/fiber": 2
+      }
+    },
+    {
+      "id": "database",
+      "intent": "Broad: databases (popularity should break ties)",
+      "params": {
+        "q": "database"
+      },
+      "ratings": {
+        "postgres/postgres": 3,
+        "cockroachdb/cockroach": 3,
+        "redis/redis": 2,
+        "milvus-io/milvus": 2,
+        "qdrant/qdrant": 2,
+        "weaviate/weaviate": 2,
+        "chroma-core/chroma": 2,
+        "pgvector/pgvector": 1,
+        "go-gorm/gorm": 1,
+        "prometheus/prometheus": 1
+      }
     }
   ]
 }

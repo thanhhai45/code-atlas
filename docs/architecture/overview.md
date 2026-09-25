@@ -64,16 +64,18 @@ Facet selections are applied in `post_filter`, not in `query`. Each facet aggreg
 `filter` aggregation containing every *other* selected facet. This keeps counts meaningful for
 multi-select ("Go 12, Rust 8" stays visible after selecting Go).
 
-### Ranking (baseline)
+### Ranking
 
 ```text
-score = BM25(text clauses) × ( log(2 + stars) + 0.5 × gauss(pushed_at, offset 30d, scale 180d) )
+score = BM25(text clauses) + 0.5 × log10(2 + stars) + 1.0 × gauss(pushed_at, offset 30d, scale 180d)
 ```
 
-Only applied for relevance sort with a text query. This is a starting point; it must be tuned against a
-judgment list with `_rank_eval` (see ROADMAP-REVIEW §3.3).
+Only applied for relevance sort with a text query. Popularity and recency add at most ~3.6 points and act as
+tie-breakers between similarly relevant repositories; they no longer multiply the text score. Weights are
+`search.DefaultSignals`, chosen with `rankeval -grid` (docs/experiments/03-business-signal-tuning.md).
+Sum-mode weights depend on the BM25 score scale, which grows with corpus size, so re-tune after large data changes.
 
-### Caching
+## Caching
 
 `/search` responses are cached in Redis for `SEARCH_CACHE_TTL_SECONDS` (default 60) under a hash of the
 normalized parameters. Redis failures degrade to uncached responses, and `/health` reports Redis as
