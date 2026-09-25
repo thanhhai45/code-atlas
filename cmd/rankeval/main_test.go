@@ -71,3 +71,25 @@ func TestCheckThresholds(t *testing.T) {
 		t.Errorf("recall regression must fail even when NDCG passes, got %v", err)
 	}
 }
+
+func TestBestVariant(t *testing.T) {
+	r := Report{Metrics: map[string]map[string]float64{
+		"a": {"ndcg@10": 0.90, "mrr@10": 1.0},
+		"b": {"ndcg@10": 0.95, "mrr@10": 0.9},
+		"c": {"ndcg@10": 0.95, "mrr@10": 1.0},
+		"d": {"ndcg@10": 0.95, "mrr@10": 1.0}, // tie with c: the earlier one wins
+	}}
+	if got := bestVariant(r, 10, []string{"a", "b", "c", "d"}); got != "c" {
+		t.Errorf("bestVariant = %q, want c", got)
+	}
+}
+
+func TestGridVariantNamesAreUnique(t *testing.T) {
+	seen := map[string]bool{}
+	for _, v := range gridVariants() {
+		if seen[v.Name] {
+			t.Errorf("duplicate grid variant %q", v.Name)
+		}
+		seen[v.Name] = true
+	}
+}

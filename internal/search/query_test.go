@@ -177,3 +177,35 @@ func TestMetricName(t *testing.T) {
 		}
 	}
 }
+
+func TestWithBusinessSignals(t *testing.T) {
+	q := map[string]any{"match_all": map[string]any{}}
+
+	if got := withBusinessSignals(q, Signals{}); toJSON(t, got) != toJSON(t, q) {
+		t.Errorf("all-zero weights must leave the query untouched, got %s", toJSON(t, got))
+	}
+
+	got := toJSON(t, withBusinessSignals(q, Signals{BoostMode: "multiply", Base: 5, StarsWeight: 1, RecencyWeight: 0.5}))
+	for _, want := range []string{`{"weight":5}`, `"field":"stars"`, `"gauss"`, `"weight":0.5`, `"boost_mode":"multiply"`, `"score_mode":"sum"`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %s in %s", want, got)
+		}
+	}
+
+	got = toJSON(t, withBusinessSignals(q, Signals{BoostMode: "sum", StarsWeight: 0.5}))
+	if !strings.Contains(got, `"boost_mode":"sum"`) || strings.Contains(got, "gauss") || strings.Contains(got, `{"weight":0}`) {
+		t.Errorf("unexpected sum-mode query: %s", got)
+	}
+}
+
+func TestRankingOptionsOverrideSignals(t *testing.T) {
+	p := Params{Query: "orm"}
+	custom := Signals{BoostMode: "multiply", Base: 20, StarsWeight: 1}
+	got := toJSON(t, BuildRankEvalRequest(p, RankingOptions{Signals: &custom}))
+	if !strings.Contains(got, `{"weight":20}`) || !strings.Contains(got, `"boost_mode":"multiply"`) {
+		t.Errorf("custom signals not applied: %s", got)
+	}
+	if def := toJSON(t, BuildSearchQuery(p)["query"]); !strings.Contains(def, `"boost_mode":"`+DefaultSignals.BoostMode+`"`) {
+		t.Errorf("live search must use DefaultSignals: %s", def)
+	}
+}

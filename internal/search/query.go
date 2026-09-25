@@ -163,29 +163,60 @@ func textQuery(q string) map[string]any {
 	}
 }
 
-// withBusinessSignals wraps a relevance query in function_score so popularity and
-// recency influence ranking without drowning out text relevance:
+// Signals weights popularity and recency against text relevance:
 //
-//	final = bm25 * (log(2 + stars) + 0.5 * gauss(pushed_at))
+//	multiply: final = bm25 * (Base + StarsWeight*log10(2 + stars) + RecencyWeight*gauss(pushed_at))
+//	sum:      final = bm25 + (Base + StarsWeight*log10(2 + stars) + RecencyWeight*gauss(pushed_at))
 //
-// This is a starting point for Phase 5 tuning, not a final formula.
-func withBusinessSignals(q map[string]any) map[string]any {
+// In multiply mode the signals scale the whole score, so a very popular,
+// partially relevant repository can outrank a better text match; Base dampens
+// that. In sum mode they add at most a few points to BM25 and act as
+// tie-breakers between similarly relevant repositories. Because BM25 scores
+// grow with corpus size (IDF), sum-mode weights must be re-tuned when the
+// dataset grows. See docs/experiments/03-business-signal-tuning.md.
+type Signals struct {
+	BoostMode     string // "multiply" or "sum"
+	Base          float64
+	StarsWeight   float64
+	RecencyWeight float64
+}
+
+// DefaultSignals is the configuration /search uses, chosen with `rankeval -grid`.
+var DefaultSignals = Signals{BoostMode: "sum", StarsWeight: 0.5, RecencyWeight: 1}
+
+// withBusinessSignals wraps a relevance query in function_score.
+func withBusinessSignals(q map[string]any, s Signals) map[string]any {
+	functions := []any{}
+	if s.Base > 0 {
+		functions = append(functions, map[string]any{"weight": s.Base}) // constant term
+	}
+	if s.StarsWeight > 0 {
+		functions = append(functions, map[string]any{
+			"field_value_factor": map[string]any{"field": "stars", "modifier": "log2p", "factor": 1, "missing": 0},
+			"weight":             s.StarsWeight,
+		})
+	}
+	if s.RecencyWeight > 0 {
+		functions = append(functions, map[string]any{
+			"gauss": map[string]any{"pushed_at": map[string]any{
+				"origin": "now", "offset": "30d", "scale": "180d", "decay": 0.5,
+			}},
+			"weight": s.RecencyWeight,
+		})
+	}
+	if len(functions) == 0 {
+		return q
+	}
+	boostMode := s.BoostMode
+	if boostMode == "" {
+		boostMode = "multiply"
+	}
 	return map[string]any{
 		"function_score": map[string]any{
-			"query": q,
-			"functions": []any{
-				map[string]any{"field_value_factor": map[string]any{
-					"field": "stars", "modifier": "log2p", "factor": 1, "missing": 0,
-				}},
-				map[string]any{
-					"gauss": map[string]any{"pushed_at": map[string]any{
-						"origin": "now", "offset": "30d", "scale": "180d", "decay": 0.5,
-					}},
-					"weight": 0.5,
-				},
-			},
+			"query":      q,
+			"functions":  functions,
 			"score_mode": "sum",
-			"boost_mode": "multiply",
+			"boost_mode": boostMode,
 		},
 	}
 }
@@ -195,6 +226,8 @@ func withBusinessSignals(q map[string]any) map[string]any {
 type RankingOptions struct {
 	// DisableBusinessSignals scores by text relevance (BM25) only.
 	DisableBusinessSignals bool
+	// Signals overrides DefaultSignals when non-nil.
+	Signals *Signals
 }
 
 // buildQuery returns the "query" part of a search. extraFilters are added as
@@ -215,7 +248,11 @@ func buildQuery(p Params, opts RankingOptions, extraFilters []any) map[string]an
 	}
 	query := map[string]any{"bool": boolQuery}
 	if p.Query != "" && p.Sort == "relevance" && !opts.DisableBusinessSignals {
-		query = withBusinessSignals(query)
+		signals := DefaultSignals
+		if opts.Signals != nil {
+			signals = *opts.Signals
+		}
+		query = withBusinessSignals(query, signals)
 	}
 	return query
 }

@@ -67,13 +67,62 @@ var variants = []variant{
 	{Name: "bm25_only", Opts: search.RankingOptions{DisableBusinessSignals: true}},
 }
 
+// gridVariants spans the business-signal weights explored by -grid.
+func gridVariants() []variant {
+	var out []variant
+	add := func(s search.Signals) {
+		name := fmt.Sprintf("mul base=%g stars=%g rec=%g", s.Base, s.StarsWeight, s.RecencyWeight)
+		if s.BoostMode == "sum" {
+			name = fmt.Sprintf("sum stars=%g rec=%g", s.StarsWeight, s.RecencyWeight)
+		}
+		out = append(out, variant{Name: name, Opts: search.RankingOptions{Signals: &s}})
+	}
+	for _, base := range []float64{0, 1, 2, 5, 10, 20} {
+		for _, rec := range []float64{0, 0.5, 1} {
+			add(search.Signals{BoostMode: "multiply", Base: base, StarsWeight: 1, RecencyWeight: rec})
+		}
+	}
+	for _, stars := range []float64{0.5, 1, 2, 5} {
+		for _, rec := range []float64{0, 1, 2} {
+			add(search.Signals{BoostMode: "sum", StarsWeight: stars, RecencyWeight: rec})
+		}
+	}
+	return out
+}
+
+// bestVariant picks the highest mean NDCG, breaking ties by MRR, then
+// precision, then list order (the grid lists weaker signals first).
+func bestVariant(r Report, k int, names []string) string {
+	ndcg, mrr := fmt.Sprintf("ndcg@%d", k), fmt.Sprintf("mrr@%d", k)
+	best := ""
+	for _, n := range names {
+		if best == "" {
+			best = n
+			continue
+		}
+		a, b := r.Metrics[n], r.Metrics[best]
+		switch {
+		case a[ndcg] > b[ndcg]+1e-9:
+			best = n
+		case a[ndcg] < b[ndcg]-1e-9:
+		case a[mrr] > b[mrr]+1e-9:
+			best = n
+		case a[mrr] < b[mrr]-1e-9:
+		case a["precision@5"] > b["precision@5"]+1e-9:
+			best = n
+		}
+	}
+	return best
+}
+
 // Report is the machine-readable result (-json).
 type Report struct {
 	Index    string                                   `json:"index"`
 	Queries  int                                      `json:"queries"`
-	Metrics  map[string]map[string]float64            `json:"metrics"`   // variant -> metric -> score
-	PerQuery map[string]map[string]map[string]float64 `json:"per_query"` // variant -> query -> metric -> score
-	Unrated  map[string][]string                      `json:"unrated"`   // query -> unrated full names in top k (default variant)
+	Metrics  map[string]map[string]float64            `json:"metrics"`        // variant -> metric -> score
+	PerQuery map[string]map[string]map[string]float64 `json:"per_query"`      // variant -> query -> metric -> score
+	Unrated  map[string][]string                      `json:"unrated"`        // query -> unrated full names in top k (default variant)
+	Best     string                                   `json:"best,omitempty"` // best grid variant (-grid only)
 }
 
 func main() {
@@ -83,7 +132,11 @@ func main() {
 	minRecall := flag.Float64("min-recall", 0, "fail if the default variant's mean recall@k is below this value")
 	verbose := flag.Bool("v", false, "print the top hits of every query")
 	jsonOut := flag.String("json", "", "write the full report to this file")
+	grid := flag.Bool("grid", false, "also evaluate a grid of business-signal weights and report the best")
 	flag.Parse()
+	if *grid {
+		variants = append(variants, gridVariants()...)
+	}
 
 	if err := run(*path, *k, thresholds{ndcg: *minNDCG, recall: *minRecall}, *verbose, *jsonOut); err != nil {
 		slog.Error("rankeval failed", "err", err)
@@ -185,6 +238,14 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 				topHits = res.Queries
 			}
 		}
+	}
+
+	if len(variants) > 2 {
+		names := make([]string, 0, len(variants)-2)
+		for _, v := range variants[2:] {
+			names = append(names, v.Name)
+		}
+		report.Best = bestVariant(report, k, names)
 	}
 
 	// Name the unrated documents so the judgment list can be extended.
@@ -302,17 +363,24 @@ func printReport(w *os.File, jf JudgmentFile, r Report, k int) {
 	}
 	tw.Flush()
 
+	// Per-query columns: default, bm25_only and, with -grid, the best grid variant.
+	columns := []string{variants[0].Name, variants[1].Name}
+	if r.Best != "" {
+		fmt.Fprintf(w, "\nbest grid variant: %s\n", r.Best)
+		columns = append(columns, r.Best)
+	}
+
 	fmt.Fprintf(w, "\nper query (%s)\n", ndcg)
 	tw = tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	fmt.Fprint(tw, "query")
-	for _, v := range variants {
-		fmt.Fprintf(tw, "\t%s", v.Name)
+	for _, c := range columns {
+		fmt.Fprintf(tw, "\t%s", c)
 	}
 	fmt.Fprintln(tw, "\tunrated in top k")
 	for _, j := range jf.Queries {
 		fmt.Fprintf(tw, "%s", j.ID)
-		for _, v := range variants {
-			fmt.Fprintf(tw, "\t%.3f", r.PerQuery[v.Name][j.ID][ndcg])
+		for _, c := range columns {
+			fmt.Fprintf(tw, "\t%.3f", r.PerQuery[c][j.ID][ndcg])
 		}
 		fmt.Fprintf(tw, "\t%d\n", len(r.Unrated[j.ID]))
 	}

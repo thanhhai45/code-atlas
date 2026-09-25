@@ -1,18 +1,18 @@
 {
-  "index": "repositories_20260925t170811",
-  "queries": 30,
+  "index": "repositories_20260925t174327",
+  "queries": 40,
   "metrics": {
     "bm25_only": {
       "mrr@10": 1,
-      "ndcg@10": 0.9828440412962587,
-      "precision@5": 0.8955555555555555,
-      "recall@10": 0.8366666666666667
+      "ndcg@10": 0.9822434113953502,
+      "precision@5": 0.875,
+      "recall@10": 0.8441666666666666
     },
     "default": {
-      "mrr@10": 0.9833333333333333,
-      "ndcg@10": 0.9824135319596323,
-      "precision@5": 0.8955555555555555,
-      "recall@10": 0.8366666666666667
+      "mrr@10": 1,
+      "ndcg@10": 0.9862665579006599,
+      "precision@5": 0.875,
+      "recall@10": 0.8441666666666666
     }
   },
   "per_query": {
@@ -27,6 +27,12 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
+        "recall@10": 1
+      },
+      "database": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9734452764846179,
+        "precision@5": 0.8,
         "recall@10": 1
       },
       "distributed-sql": {
@@ -77,6 +83,12 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "go-elasticsearch-client": {
+        "mrr@10": 1,
+        "ndcg@10": 0.938506417451168,
+        "precision@5": 0.3333333333333333,
+        "recall@10": 1
+      },
       "go-orm": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -95,6 +107,18 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "grafana": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "http-router": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
+      },
       "infrastructure-as-code": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -106,6 +130,18 @@
         "ndcg@10": 1,
         "precision@5": 1,
         "recall@10": 1
+      },
+      "kubernetes": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "llm-inference": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
       },
       "logging": {
         "mrr@10": 1,
@@ -143,6 +179,12 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "postgres-vector-search": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9567687797312096,
+        "precision@5": 0.2,
+        "recall@10": 1
+      },
       "python-api-framework": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -156,6 +198,12 @@
         "recall@10": 0.75
       },
       "react-framework": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "redis": {
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
@@ -179,6 +227,12 @@
         "precision@5": 0.6666666666666666,
         "recall@10": 1
       },
+      "search-engine": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9356947432592532,
+        "precision@5": 0.8,
+        "recall@10": 1
+      },
       "similarity-search": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -190,6 +244,12 @@
         "ndcg@10": 1,
         "precision@5": 1,
         "recall@10": 0.5
+      },
+      "trigram-code-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
       },
       "vector-database": {
         "mrr@10": 1,
@@ -209,6 +269,12 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
+        "recall@10": 1
+      },
+      "database": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9734452764846179,
+        "precision@5": 0.8,
         "recall@10": 1
       },
       "distributed-sql": {
@@ -231,7 +297,7 @@
       },
       "elasticsearch-typo": {
         "mrr@10": 1,
-        "ndcg@10": 1,
+        "ndcg@10": 0.98801309173617,
         "precision@5": 0.6,
         "recall@10": 1
       },
@@ -259,6 +325,12 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "go-elasticsearch-client": {
+        "mrr@10": 1,
+        "ndcg@10": 0.938506417451168,
+        "precision@5": 0.3333333333333333,
+        "recall@10": 1
+      },
       "go-orm": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -277,6 +349,18 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "grafana": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "http-router": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
+      },
       "infrastructure-as-code": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -288,6 +372,18 @@
         "ndcg@10": 1,
         "precision@5": 1,
         "recall@10": 1
+      },
+      "kubernetes": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
+      "llm-inference": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 0.3333333333333333
       },
       "logging": {
         "mrr@10": 1,
@@ -325,6 +421,12 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "postgres-vector-search": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9567687797312096,
+        "precision@5": 0.2,
+        "recall@10": 1
+      },
       "python-api-framework": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -343,6 +445,12 @@
         "precision@5": 1,
         "recall@10": 1
       },
+      "redis": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
       "ruby-elasticsearch-mit": {
         "mrr@10": 1,
         "ndcg@10": 1,
@@ -356,9 +464,15 @@
         "recall@10": 0.5
       },
       "rust-search-engine": {
-        "mrr@10": 0.5,
-        "ndcg@10": 0.7482484020681008,
+        "mrr@10": 1,
+        "ndcg@10": 0.9340764506431117,
         "precision@5": 0.6666666666666666,
+        "recall@10": 1
+      },
+      "search-engine": {
+        "mrr@10": 1,
+        "ndcg@10": 0.9356947432592532,
+        "precision@5": 0.8,
         "recall@10": 1
       },
       "similarity-search": {
@@ -373,6 +487,12 @@
         "precision@5": 1,
         "recall@10": 0.5
       },
+      "trigram-code-search": {
+        "mrr@10": 1,
+        "ndcg@10": 1,
+        "precision@5": 1,
+        "recall@10": 1
+      },
       "vector-database": {
         "mrr@10": 1,
         "ndcg@10": 0.9594744597695195,
@@ -381,5 +501,14 @@
       }
     }
   },
-  "unrated": {}
+  "unrated": {
+    "go-elasticsearch-client": [
+      "zincsearch/zincsearch"
+    ],
+    "postgres-vector-search": [
+      "facebookresearch/faiss",
+      "blevesearch/bleve",
+      "typesense/typesense"
+    ]
+  }
 }
