@@ -4,3 +4,4 @@
 coverage.txt
 .env
 .DS_Store
+failover-results/

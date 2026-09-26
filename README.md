@@ -79,7 +79,8 @@ go run ./cmd/crawler -seed testdata/seed_repositories.json
 `/search` parameters: `q`, `language`, `license`, `topic` (repeatable or comma-separated),
 `min_stars`, `max_stars`, `pushed_within` (`30d` \| `90d` \| `1y`), `sort` (`relevance` \| `stars` \| `updated`),
 `page`, `size` (≤ 100), `cursor`, `mode` (`lexical` default \| `hybrid` \| `semantic`), `include_archived`,
-`include_forks`. The response's `mode` field is the mode that actually ran: semantic modes need a text query,
+`include_forks`. `partial: true` means some shards did not answer (a shard had no live copy, or the search timed
+out): the hits, total and facets are incomplete, and the response is not cached. The response's `mode` field is the mode that actually ran: semantic modes need a text query,
 "best match" ordering and a reachable ai-worker, and fall back to lexical otherwise.
 
 Pagination: `page` works up to the 10,000-result window. Every full page also returns `next_cursor`; pass it
@@ -157,6 +158,22 @@ or, with `-target api`, through the Go API. Results and analysis:
 [`docs/experiments/05-benchmark-baseline.md`](docs/experiments/05-benchmark-baseline.md). Shard count (1 / 3 / 5
 primaries at 1M documents, `-shards`, `-force-merge`):
 [`docs/experiments/06-sharding.md`](docs/experiments/06-sharding.md).
+
+### Three-node cluster
+
+```bash
+make cluster-up                      # es01-es03, 1 CPU and 1 GB heap each (infrastructure/cluster)
+make datagen BENCH_DOCS=1000000 BENCH_SHARDS=3 BENCH_REPLICAS=1
+go run ./cmd/bench -url http://localhost:9200,http://localhost:9201,http://localhost:9202
+make failover                        # kill es03 under load: client errors, retries, cluster health per second
+make cluster-down
+```
+
+`cmd/bench` round-robins over the node URLs and retries on another node when one is down; `-timeline 1s` prints
+requests, errors and P95 per second. `datagen -replicas N` adds replicas after the load (`-replicas-during-load`
+to compare). A multi-node cluster enforces Elasticsearch's bootstrap checks; on hosts that cannot raise the
+open-files limit, the default `make cluster-up` uses a loopback override (see the compose files). Results:
+[`docs/experiments/07-cluster.md`](docs/experiments/07-cluster.md).
 
 ## Repository layout
 
