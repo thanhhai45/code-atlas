@@ -1,0 +1,21 @@
+{
+  "index": "repositories_bench_1m_s3_20260926t130159",
+  "alias": "repositories_bench_1m_s3",
+  "shards": 3,
+  "docs": 1000000,
+  "failed": 0,
+  "vectors": false,
+  "readme": true,
+  "batch_size": 1000,
+  "workers": 4,
+  "load_seconds": 53.389032184,
+  "docs_per_sec": 18730.438801617518,
+  "refresh_seconds": 0.911295696,
+  "index_stats": {
+    "docs": 1000000,
+    "store_bytes": 1223584970,
+    "segments": 47
+  },
+  "bytes_per_doc": 1223.58497,
+  "seed": 1
+}
