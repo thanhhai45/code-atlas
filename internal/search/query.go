@@ -401,6 +401,13 @@ func BuildSearchQuery(p Params) map[string]any {
 			"encoder":   "html", // escape source text; only <mark> tags are trusted HTML
 			"pre_tags":  []string{"<mark>"},
 			"post_tags": []string{"</mark>"},
+			// Highlight exact (and synonym) matches only. Highlighting with the
+			// search query itself makes the highlighter expand the fuzzy clause
+			// for every hit, which tripled /search latency (experiment 05).
+			"highlight_query": map[string]any{"multi_match": map[string]any{
+				"query":  p.Query,
+				"fields": []string{"description", "readme"},
+			}},
 			"fields": map[string]any{
 				"description": map[string]any{"number_of_fragments": 0},
 				"readme":      map[string]any{"fragment_size": 160, "number_of_fragments": 2},

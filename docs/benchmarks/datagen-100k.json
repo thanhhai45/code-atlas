@@ -1,0 +1,20 @@
+{
+  "index": "repositories_bench_20260926t103606",
+  "alias": "repositories_bench",
+  "docs": 100000,
+  "failed": 0,
+  "vectors": true,
+  "readme": true,
+  "batch_size": 1000,
+  "workers": 4,
+  "load_seconds": 29.674390597,
+  "docs_per_sec": 3369.909136739264,
+  "refresh_seconds": 3.853464656,
+  "index_stats": {
+    "docs": 100000,
+    "store_bytes": 634427892,
+    "segments": 6
+  },
+  "bytes_per_doc": 6344.27892,
+  "seed": 1
+}

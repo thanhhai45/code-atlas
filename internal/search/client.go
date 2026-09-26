@@ -276,3 +276,42 @@ func truncate(s string, n int) string {
 	}
 	return s[:n] + "..."
 }
+
+// UpdateSettings changes dynamic index settings (e.g. refresh_interval).
+func (c *Client) UpdateSettings(ctx context.Context, index string, settings map[string]any) error {
+	return c.do(ctx, http.MethodPut, "/"+url.PathEscape(index)+"/_settings", map[string]any{"index": settings}, "", nil)
+}
+
+// IndexStats is the size of an index after indexing.
+type IndexStats struct {
+	Docs       int64 `json:"docs"`
+	StoreBytes int64 `json:"store_bytes"`
+	Segments   int64 `json:"segments"`
+}
+
+// Stats returns document count, primary store size and segment count of an index.
+func (c *Client) Stats(ctx context.Context, index string) (IndexStats, error) {
+	var res struct {
+		Primaries struct {
+			Docs struct {
+				Count int64 `json:"count"`
+			} `json:"docs"`
+			Store struct {
+				SizeInBytes int64 `json:"size_in_bytes"`
+			} `json:"store"`
+			Segments struct {
+				Count int64 `json:"count"`
+			} `json:"segments"`
+		} `json:"primaries"`
+	}
+	var out struct {
+		All json.RawMessage `json:"_all"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/"+url.PathEscape(index)+"/_stats/docs,store,segments", nil, "", &out); err != nil {
+		return IndexStats{}, err
+	}
+	if err := json.Unmarshal(out.All, &res); err != nil {
+		return IndexStats{}, err
+	}
+	return IndexStats{Docs: res.Primaries.Docs.Count, StoreBytes: res.Primaries.Store.SizeInBytes, Segments: res.Primaries.Segments.Count}, nil
+}

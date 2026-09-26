@@ -1,4 +1,4 @@
-.PHONY: help up down logs seed crawl reindex rankeval rankeval-semantic test test-integration lint build dev-api dev-web
+.PHONY: help up down logs seed crawl reindex rankeval rankeval-semantic datagen bench test test-integration lint build dev-api dev-web
 
 CRAWL_MIN_STARS ?= 1000
 CRAWL_MAX ?= 10000
@@ -29,6 +29,14 @@ rankeval-semantic: ## Evaluate semantic and hybrid configurations (needs make up
 
 rankeval: ## Measure relevance against testdata/judgments.json (needs make seed)
 	go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
+
+BENCH_DOCS ?= 100000
+
+datagen: ## Load BENCH_DOCS synthetic repositories into the repositories_bench alias
+	go run ./cmd/datagen -n $(BENCH_DOCS)
+
+bench: ## Benchmark every workload against repositories_bench (P50/P95/P99, QPS)
+	go run ./cmd/bench -c 8 -d 20s
 
 test: ## Run Go tests
 	go test -race ./...

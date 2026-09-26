@@ -135,12 +135,30 @@ file), and exits non-zero below `-min-ndcg` / `-min-recall`. `-grid` also evalua
 weightings and reports the best one ([experiment 03](docs/experiments/03-business-signal-tuning.md)). Baseline and experiments:
 [`docs/experiments/02-ranking-evaluation.md`](docs/experiments/02-ranking-evaluation.md).
 
+## Benchmarks
+
+```bash
+make datagen BENCH_DOCS=100000   # synthetic repositories into the repositories_bench alias
+make bench                       # 16 workloads, 8 workers, 20 s each: P50/P95/P99, QPS, errors
+go run ./cmd/bench -list         # workload descriptions
+go run ./cmd/bench -workloads full_search,hybrid -c 1,4,16 -d 30s -json out.json
+```
+
+`cmd/datagen` generates realistic data at any scale (power-law stars, Zipf topics and vocabulary, topic-clustered
+embeddings), loads it into its own alias (never the live one) and reports indexing throughput. `cmd/bench` runs
+the roadmap's query types (exact, full text, bool + filter, function score, aggregations, fuzzy, wildcard,
+suggest, kNN, hybrid, deep `from` vs `search_after`, and the complete `/search` request) against Elasticsearch
+or, with `-target api`, through the Go API. Results and analysis:
+[`docs/experiments/05-benchmark-baseline.md`](docs/experiments/05-benchmark-baseline.md).
+
 ## Repository layout
 
 ```text
 cmd/api            HTTP API entrypoint
 cmd/crawler        GitHub ingestion + reindex entrypoint
 cmd/rankeval       Relevance evaluation against a judgment list
+cmd/datagen        Synthetic data loader for benchmarks (internal/synth)
+cmd/bench          Latency / throughput benchmark (internal/bench)
 internal/embed     ai-worker client
 internal/api       Gin handlers
 internal/search    Elasticsearch client, index definition (index.json), query builder
