@@ -44,6 +44,10 @@ type Result struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 	// Mode is the retrieval mode that actually ran (see Params.EffectiveMode).
 	Mode string `json:"mode"`
+	// Partial is set when some shards did not answer (no live copy, or the
+	// search timed out). Elasticsearch still returns HTTP 200 with the hits
+	// from the other shards, so hits, totals and facets are incomplete.
+	Partial bool `json:"partial,omitempty"`
 }
 
 type esHit struct {
@@ -55,7 +59,12 @@ type esHit struct {
 }
 
 type esResponse struct {
-	Took int `json:"took"`
+	Took     int  `json:"took"`
+	TimedOut bool `json:"timed_out"`
+	Shards   struct {
+		Total  int `json:"total"`
+		Failed int `json:"failed"`
+	} `json:"_shards"`
 	Hits struct {
 		Total struct {
 			Value int64 `json:"value"`
@@ -104,6 +113,9 @@ func (c *Client) Search(ctx context.Context, p Params) (Result, error) {
 		Hits:   res.hits(),
 		Facets: map[string][]Bucket{},
 		Mode:   p.EffectiveMode(),
+		// Partial results beat an error for discovery search, but callers
+		// must be able to tell (and must not cache them).
+		Partial: res.TimedOut || res.Shards.Failed > 0,
 	}
 	if n := len(res.Hits.Hits); n > 0 && n == p.Size {
 		last := res.Hits.Hits[n-1].Sort
