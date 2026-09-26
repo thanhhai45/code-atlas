@@ -135,6 +135,70 @@ func (c *Client) CreateIndex(ctx context.Context, name string) error {
 	return c.do(ctx, http.MethodPut, "/"+url.PathEscape(name), indexDefinition, "", nil)
 }
 
+// IndexDefinitionWithShards returns the index definition with number_of_shards
+// replaced. The shard count is fixed at creation, so experiments that compare
+// shard counts need their own index per count.
+func IndexDefinitionWithShards(shards int) ([]byte, error) {
+	if shards < 1 {
+		return nil, fmt.Errorf("number of shards must be at least 1, got %d", shards)
+	}
+	var def map[string]any
+	if err := json.Unmarshal(indexDefinition, &def); err != nil {
+		return nil, err
+	}
+	settings, ok := def["settings"].(map[string]any)
+	if !ok {
+		return nil, errors.New("index definition has no settings object")
+	}
+	settings["number_of_shards"] = shards
+	return json.Marshal(def)
+}
+
+// CreateIndexWithShards creates an index from the embedded definition with the given primary shard count.
+func (c *Client) CreateIndexWithShards(ctx context.Context, name string, shards int) error {
+	def, err := IndexDefinitionWithShards(shards)
+	if err != nil {
+		return err
+	}
+	return c.do(ctx, http.MethodPut, "/"+url.PathEscape(name), def, "", nil)
+}
+
+// ForceMerge merges each shard of an index down to at most maxSegments segments
+// and waits for it to finish. A merge of a large index takes minutes, longer
+// than the HTTP timeout, so it runs as a background task that is polled.
+func (c *Client) ForceMerge(ctx context.Context, index string, maxSegments int) error {
+	var started struct {
+		Task string `json:"task"`
+	}
+	path := fmt.Sprintf("/%s/_forcemerge?max_num_segments=%d&wait_for_completion=false", url.PathEscape(index), maxSegments)
+	if err := c.do(ctx, http.MethodPost, path, nil, "", &started); err != nil {
+		return err
+	}
+	if started.Task == "" {
+		return errors.New("force merge returned no task id")
+	}
+	for {
+		var task struct {
+			Completed bool            `json:"completed"`
+			Error     json.RawMessage `json:"error"`
+		}
+		if err := c.do(ctx, http.MethodGet, "/_tasks/"+url.PathEscape(started.Task), nil, "", &task); err != nil {
+			return err
+		}
+		if task.Completed {
+			if len(task.Error) > 0 {
+				return fmt.Errorf("force merge failed: %s", task.Error)
+			}
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
+	}
+}
+
 func (c *Client) DeleteIndex(ctx context.Context, name string) error {
 	return c.do(ctx, http.MethodDelete, "/"+url.PathEscape(name), nil, "", nil)
 }
