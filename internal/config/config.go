@@ -8,9 +8,9 @@ import (
 )
 
 type Config struct {
-	HTTPAddr         string
-	DatabaseURL      string
-	RedisURL         string
+	HTTPAddr    string
+	DatabaseURL string
+	RedisURL    string
 	// ElasticsearchURL is one node URL, or several separated by commas: the
 	// search client spreads requests over them and fails over when one is down.
 	ElasticsearchURL string
