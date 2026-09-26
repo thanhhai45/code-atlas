@@ -28,6 +28,11 @@ var (
 		Name: "atlas_search_cache_total",
 		Help: "Search cache lookups by result (hit / miss).",
 	}, []string{"result"})
+
+	PartialResults = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "atlas_search_partial_results_total",
+		Help: "Searches answered with results from only some shards (a shard had no live copy, or timed out).",
+	})
 )
 
 // Middleware records request latency per matched route.

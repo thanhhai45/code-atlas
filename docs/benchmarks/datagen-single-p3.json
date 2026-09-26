@@ -1,0 +1,24 @@
+{
+  "index": "bench_s_p3_20260926t154224",
+  "alias": "bench_s_p3",
+  "shards": 3,
+  "docs": 1000000,
+  "failed": 0,
+  "vectors": false,
+  "readme": true,
+  "batch_size": 1000,
+  "workers": 4,
+  "load_seconds": 186.516257533,
+  "docs_per_sec": 5361.4629267535665,
+  "refresh_seconds": 1.130599041,
+  "force_merge_seconds": 26.049180504,
+  "replicas": 0,
+  "replicas_during_load": false,
+  "index_stats": {
+    "docs": 1000000,
+    "store_bytes": 849584907,
+    "segments": 3
+  },
+  "bytes_per_doc": 849.584907,
+  "seed": 1
+}

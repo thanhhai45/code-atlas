@@ -1,0 +1,24 @@
+{
+  "index": "bench_c_idx_during_20260926t153010",
+  "alias": "bench_c_idx_during",
+  "shards": 3,
+  "docs": 1000000,
+  "failed": 0,
+  "vectors": false,
+  "readme": true,
+  "batch_size": 1000,
+  "workers": 4,
+  "load_seconds": 133.237255832,
+  "docs_per_sec": 7505.408256538311,
+  "refresh_seconds": 0.987229797,
+  "replicas": 1,
+  "replicas_during_load": true,
+  "replica_seconds": 0.003962759,
+  "index_stats": {
+    "docs": 1000000,
+    "store_bytes": 910210898,
+    "segments": 58
+  },
+  "bytes_per_doc": 910.210898,
+  "seed": 1
+}

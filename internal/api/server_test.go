@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -29,14 +30,15 @@ func (f fakeRepos) ListRepositories(context.Context, int, int) ([]model.Reposito
 }
 
 type fakeSearch struct {
-	last  search.Params
-	calls int
+	last    search.Params
+	calls   int
+	partial bool
 }
 
 func (f *fakeSearch) Ping(context.Context) (string, error) { return "yellow", nil }
 func (f *fakeSearch) Search(_ context.Context, p search.Params) (search.Result, error) {
 	f.last, f.calls = p, f.calls+1
-	return search.Result{Total: 1, Hits: []search.Hit{{ID: 1}}}, nil
+	return search.Result{Total: 1, Hits: []search.Hit{{ID: 1}}, Partial: f.partial}, nil
 }
 func (f *fakeSearch) Suggest(context.Context, string, int) ([]search.Hit, error) {
 	return []search.Hit{{ID: 1}}, nil
@@ -191,5 +193,22 @@ func TestSearchFallsBackToLexicalWhenEmbeddingFails(t *testing.T) {
 	}
 	if w := do(t, r, "/health"); w.Code != http.StatusOK {
 		t.Errorf("a down embedder degrades health, it does not fail it: %d", w.Code)
+	}
+}
+
+func TestPartialResultsAreServedButNotCached(t *testing.T) {
+	fs := &fakeSearch{partial: true}
+	s := &Server{Repos: fakeRepos{}, Search: fs, Cache: &memCache{m: map[string][]byte{}}}
+	for range 2 {
+		w := do(t, s.Router(), "/search?q=orm")
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"partial":true`) {
+			t.Fatalf("partial results must be served and flagged: %d %s", w.Code, w.Body)
+		}
+		if w.Header().Get("X-Cache") != "MISS" {
+			t.Fatal("partial results must not be cached")
+		}
+	}
+	if fs.calls != 2 {
+		t.Fatalf("expected both requests to reach Elasticsearch, got %d", fs.calls)
 	}
 }

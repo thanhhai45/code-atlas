@@ -4,10 +4,12 @@
 //	datagen -n 100000                      # 100K docs into the "repositories_bench" alias
 //	datagen -n 1000000 -vectors=false      # 1M docs without embeddings
 //	datagen -n 1000000 -shards 3 -alias repositories_bench_s3 -force-merge
+//	datagen -n 1000000 -shards 3 -replicas 1              # on a cluster: add a replica after the load
 //
 // It writes a new versioned index behind its own alias (never the live
-// "repositories" alias), with replicas and refresh disabled during the load,
-// then restores them, refreshes and swaps the alias.
+// "repositories" alias), with refresh (and, unless -replicas-during-load,
+// replicas) disabled during the load, then restores them, refreshes and swaps
+// the alias.
 package main
 
 import (
@@ -42,6 +44,9 @@ type Report struct {
 	DocsPerSec    float64           `json:"docs_per_sec"`
 	RefreshSecs   float64           `json:"refresh_seconds"`
 	MergeSecs     float64           `json:"force_merge_seconds,omitempty"`
+	Replicas      int               `json:"replicas"`
+	LoadReplicas  bool              `json:"replicas_during_load"`
+	ReplicaSecs   float64           `json:"replica_seconds,omitempty"`
 	IndexStats    search.IndexStats `json:"index_stats"`
 	BytesPerDoc   float64           `json:"bytes_per_doc"`
 	ElasticURL    string            `json:"-"`
@@ -59,12 +64,15 @@ func main() {
 	keepOld := flag.Bool("keep-old", false, "keep the index previously behind the alias")
 	shards := flag.Int("shards", 1, "primary shards of the new index")
 	forceMerge := flag.Bool("force-merge", false, "force-merge every shard to one segment after the load")
+	replicas := flag.Int("replicas", 0, "replicas per shard once loaded (needs replicas+1 nodes to turn green)")
+	loadReplicas := flag.Bool("replicas-during-load", false, "keep -replicas during the bulk load instead of adding them afterwards")
 	jsonOut := flag.String("json", "", "write the report to this file")
 	flag.Parse()
 
 	opts := options{
 		n: *n, alias: *alias, batchSize: *batch, workers: *workers, vectors: *vectors, readme: *readme,
 		seed: *seed, keepOld: *keepOld, shards: *shards, forceMerge: *forceMerge, jsonOut: *jsonOut,
+		replicas: *replicas, loadReplicas: *loadReplicas,
 	}
 	if err := run(opts); err != nil {
 		slog.Error("datagen failed", "err", err)
@@ -73,11 +81,11 @@ func main() {
 }
 
 type options struct {
-	n, batchSize, workers, shards int
-	alias, jsonOut                string
-	vectors, readme, keepOld      bool
-	forceMerge                    bool
-	seed                          uint64
+	n, batchSize, workers, shards, replicas int
+	alias, jsonOut                          string
+	vectors, readme, keepOld                bool
+	forceMerge, loadReplicas                bool
+	seed                                    uint64
 }
 
 func run(o options) error {
@@ -97,8 +105,14 @@ func run(o options) error {
 	if err := es.CreateIndexWithShards(ctx, index, o.shards); err != nil {
 		return err
 	}
-	// Bulk-load settings: no replicas to copy to, no refreshes to pay for.
-	if err := es.UpdateSettings(ctx, index, map[string]any{"refresh_interval": "-1", "number_of_replicas": 0}); err != nil {
+	// Bulk-load settings: no refreshes to pay for, and by default no replicas
+	// to copy every document to (they are built afterwards from the finished
+	// segments, which is cheaper than indexing each document twice).
+	loadReplicaCount := 0
+	if o.loadReplicas {
+		loadReplicaCount = o.replicas
+	}
+	if err := es.UpdateSettings(ctx, index, map[string]any{"refresh_interval": "-1", "number_of_replicas": loadReplicaCount}); err != nil {
 		return err
 	}
 
@@ -168,6 +182,20 @@ func run(o options) error {
 		}
 		merge = time.Since(mergeStart)
 	}
+	// Replicas last, so they copy the final (merged) segments.
+	replicaStart := time.Now()
+	if o.replicas > 0 {
+		if !o.loadReplicas {
+			slog.Info("adding replicas", "index", index, "replicas", o.replicas)
+			if err := es.UpdateSettings(ctx, index, map[string]any{"number_of_replicas": o.replicas}); err != nil {
+				return err
+			}
+		}
+		if err := es.WaitForGreen(ctx, index); err != nil {
+			return err
+		}
+	}
+	replicaTime := time.Since(replicaStart)
 	if err := es.SwapAlias(ctx, index, old); err != nil {
 		return err
 	}
@@ -182,16 +210,20 @@ func run(o options) error {
 	}
 
 	rep := Report{
-		Index: index, Alias: alias, Shards: o.shards, MergeSecs: merge.Seconds(), Docs: int(indexed.Load()), Failed: int(failed.Load()),
+		Index: index, Alias: alias, Shards: o.shards, MergeSecs: merge.Seconds(),
+		Replicas: o.replicas, LoadReplicas: o.loadReplicas, Docs: int(indexed.Load()), Failed: int(failed.Load()),
 		Vectors: vectors, Readme: readme, BatchSize: batchSize, Workers: workers,
 		LoadSeconds: load.Seconds(), DocsPerSec: float64(indexed.Load()) / load.Seconds(),
 		RefreshSecs: refresh.Seconds(), IndexStats: stats, GeneratorSeed: seed,
 	}
+	if o.replicas > 0 {
+		rep.ReplicaSecs = replicaTime.Seconds()
+	}
 	if stats.Docs > 0 {
 		rep.BytesPerDoc = float64(stats.StoreBytes) / float64(stats.Docs)
 	}
-	fmt.Printf("indexed %d docs (%d failed) into %s (%d shards) -> %s in %.1fs: %.0f docs/s; refresh %.1fs; merge %.1fs; %.1f MB, %d segments, %.0f bytes/doc\n",
-		rep.Docs, rep.Failed, index, o.shards, alias, rep.LoadSeconds, rep.DocsPerSec, rep.RefreshSecs, rep.MergeSecs,
+	fmt.Printf("indexed %d docs (%d failed) into %s (%d shards, %d replicas) -> %s in %.1fs: %.0f docs/s; refresh %.1fs; merge %.1fs; replicas green after %.1fs; %.1f MB, %d segments, %.0f bytes/doc\n",
+		rep.Docs, rep.Failed, index, o.shards, o.replicas, alias, rep.LoadSeconds, rep.DocsPerSec, rep.RefreshSecs, rep.MergeSecs, rep.ReplicaSecs,
 		float64(stats.StoreBytes)/1e6, stats.Segments, rep.BytesPerDoc)
 	if o.jsonOut != "" {
 		buf, _ := json.MarshalIndent(rep, "", "  ")

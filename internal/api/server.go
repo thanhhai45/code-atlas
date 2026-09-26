@@ -230,7 +230,13 @@ func (s *Server) search(c *gin.Context) {
 		return
 	}
 	metrics.SearchTook.WithLabelValues("search").Observe(float64(res.TookMS) / 1000)
-	if s.Cache != nil && !degraded {
+	if res.Partial {
+		// Served (incomplete beats nothing) but never cached, so the full
+		// answer comes back as soon as the missing shards do.
+		metrics.PartialResults.Inc()
+		slog.Warn("search answered by only some shards; results are incomplete", "q", p.Query)
+	}
+	if s.Cache != nil && !degraded && !res.Partial {
 		s.Cache.Set(ctx, key, res)
 	}
 	c.Header("X-Cache", "MISS")

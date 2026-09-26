@@ -1,0 +1,59 @@
+# Three-node Elasticsearch cluster for scaling and failure experiments
+# (roadmap Phases 12-13). Separate from the app stack in ../../docker-compose.yml.
+#
+#   docker compose -f infrastructure/cluster/docker-compose.yml up -d
+#   curl localhost:9200/_cat/nodes?v
+#
+# Every node is master-eligible and holds data, the usual layout for a small
+# cluster: any one node can fail and the other two still form a quorum.
+# ES_CPUS / ES_HEAP / ES_MEM cap each node, so that on one host the three nodes
+# behave like three smaller machines instead of sharing every core.
+#
+# A multi-node cluster enforces Elasticsearch's bootstrap checks. The host
+# needs `sysctl -w vm.max_map_count=262144`, and Docker must allow 65535 open
+# files. Where it cannot (sandboxes, some CI runners), add the loopback override:
+#
+#   docker compose -f infrastructure/cluster/docker-compose.yml \
+#                  -f infrastructure/cluster/docker-compose.loopback.yml up -d
+#
+# Local experiments only: security is off and the disk watermarks are disabled.
+x-node: &node
+  image: elasticsearch:8.15.3
+  cpus: ${ES_CPUS:-1}
+  mem_limit: ${ES_MEM:-3g}
+  ulimits:
+    nofile: { soft: 65535, hard: 65535 }
+  healthcheck:
+    test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+    interval: 10s
+    retries: 30
+
+x-env: &env
+  cluster.name: atlas-cluster
+  discovery.seed_hosts: es01,es02,es03
+  cluster.initial_master_nodes: es01,es02,es03
+  xpack.security.enabled: "false"
+  cluster.routing.allocation.disk.threshold_enabled: "false"
+  ES_JAVA_OPTS: -Xms${ES_HEAP:-1g} -Xmx${ES_HEAP:-1g}
+
+services:
+  es01:
+    <<: *node
+    environment: { <<: *env, node.name: es01 }
+    ports: ["9200:9200"]
+    volumes: [es01:/usr/share/elasticsearch/data]
+  es02:
+    <<: *node
+    environment: { <<: *env, node.name: es02 }
+    ports: ["9201:9200"]
+    volumes: [es02:/usr/share/elasticsearch/data]
+  es03:
+    <<: *node
+    environment: { <<: *env, node.name: es03 }
+    ports: ["9202:9200"]
+    volumes: [es03:/usr/share/elasticsearch/data]
+
+volumes:
+  es01:
+  es02:
+  es03:
