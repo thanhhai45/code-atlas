@@ -100,6 +100,18 @@ crawler [flags]
 
 Every run is recorded in the `crawl_runs` table (fetched / indexed / failed / status).
 
+**Getting past the 1000-result cap.** The GitHub Search API returns at most 1000 results per query, so the
+crawler splits the crawl into many queries:
+
+1. *Star cursor*: sort by stars descending; when a query is capped, the next one is `stars:<min>..<lowest seen>`
+   (duplicates at the boundary are dropped by id).
+2. *Creation-date slicing*: when at least 1000 repositories share one star count `S` (common below ~100 stars),
+   the cursor cannot move. The crawler then fetches `stars:S created:A..B`, bisecting the date range until each
+   slice has ≤ 1000 results, and continues with `stars:<min>..S-1`.
+
+Each 100 repositories cost one Search API request (plus about one extra request per bisection step), and the
+authenticated limit is 30 requests/minute, so plan for roughly 3,000 repositories per minute at best.
+
 ## Relevance evaluation
 
 ```bash
