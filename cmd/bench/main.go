@@ -5,6 +5,8 @@
 //	bench                                               # all workloads, 8 workers, 20s each
 //	bench -workloads full_text,hybrid -c 1,4,16 -d 30s  # concurrency sweep
 //	bench -target api -url http://localhost:8080        # end to end through the Go API
+//	bench -url http://localhost:9200,http://localhost:9201,http://localhost:9202 -timeline 1s
+//	                                                    # round-robin over cluster nodes
 //
 // Results are only comparable between runs on the same hardware, data and
 // settings; the JSON report records those settings.
@@ -37,6 +39,7 @@ type Report struct {
 	Duration   string            `json:"duration"`
 	Warmup     string            `json:"warmup"`
 	Seed       uint64            `json:"seed"`
+	URLs       []string          `json:"urls"`
 	ClientCPUs int               `json:"client_cpus"`
 	StartedAt  time.Time         `json:"started_at"`
 	Results    []bench.Summary   `json:"results"`
@@ -45,7 +48,7 @@ type Report struct {
 func main() {
 	cfg := config.Load()
 	target := flag.String("target", "es", "es (Elasticsearch directly) or api (the Go API)")
-	baseURL := flag.String("url", "", "base URL (default: ELASTICSEARCH_URL for es, http://localhost:8080 for api)")
+	baseURL := flag.String("url", "", "base URL, or comma-separated node URLs to round-robin over (default: ELASTICSEARCH_URL for es, http://localhost:8080 for api)")
 	alias := flag.String("alias", "repositories_bench", "index alias to query (es target) and to size the data set")
 	workloads := flag.String("workloads", "all", "comma-separated workloads, or all")
 	conc := flag.String("c", "8", "comma-separated concurrency levels to sweep")
@@ -55,6 +58,7 @@ func main() {
 	maxErr := flag.Float64("max-error-rate", 0.01, "exit 1 if any workload exceeds this error rate")
 	jsonOut := flag.String("json", "", "write the report to this file")
 	list := flag.Bool("list", false, "list workloads and exit")
+	timelineEvery := flag.Duration("timeline", 0, "also print requests, errors and P95 per interval (e.g. 1s)")
 	flag.Parse()
 
 	if *baseURL == "" {
@@ -63,16 +67,28 @@ func main() {
 			*baseURL = "http://localhost:8080"
 		}
 	}
-	if err := run(*target, *baseURL, cfg.ElasticsearchURL, *alias, *workloads, *conc, *duration, *warmup, *seed, *maxErr, *jsonOut, *list); err != nil {
+	if err := run(*target, *baseURL, cfg.ElasticsearchURL, *alias, *workloads, *conc, *duration, *warmup, *seed, *maxErr, *jsonOut, *list, *timelineEvery); err != nil {
 		slog.Error("bench failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(target, baseURL, esURL, alias, workloads, concList string, duration, warmup time.Duration, seed uint64, maxErr float64, jsonOut string, list bool) error {
+func run(target, baseURL, esURL, alias, workloads, concList string, duration, warmup time.Duration, seed uint64, maxErr float64, jsonOut string, list bool, timelineEvery time.Duration) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	var urls []string
+	for _, u := range strings.Split(baseURL, ",") {
+		if u = strings.TrimSpace(u); u != "" {
+			urls = append(urls, u)
+		}
+	}
+	if len(urls) == 0 {
+		return fmt.Errorf("no URL given")
+	}
+	if target == "es" {
+		esURL = urls[0]
+	}
 	es := search.NewClient(esURL, alias)
 	stats, err := es.Stats(ctx, alias)
 	if err != nil && !list {
@@ -119,14 +135,15 @@ func run(target, baseURL, esURL, alias, workloads, concList string, duration, wa
 	}
 
 	rep := Report{Target: target, Alias: alias, Index: stats, Duration: duration.String(), Warmup: warmup.String(),
-		Seed: seed, ClientCPUs: runtime.NumCPU(), StartedAt: time.Now().UTC()}
+		Seed: seed, URLs: urls, ClientCPUs: runtime.NumCPU(), StartedAt: time.Now().UTC()}
 	fmt.Printf("target %s (%s), alias %s: %d docs, %.1f MB, %d segments\n\n", target, baseURL, alias,
 		stats.Docs, float64(stats.StoreBytes)/1e6, stats.Segments)
-	const row = "%-15s %4v %9v %7v %9v %8v %8v %8v %8v %10v %10v\n"
-	fmt.Printf(row, "workload", "c", "requests", "errors", "qps", "p50 ms", "p95 ms", "p99 ms", "max ms", "ES took ms", "mean hits")
+	const row = "%-15s %4v %9v %7v %9v %8v %8v %8v %8v %10v %10v %8v\n"
+	fmt.Printf(row, "workload", "c", "requests", "errors", "qps", "p50 ms", "p95 ms", "p99 ms", "max ms", "ES took ms", "mean hits", "retries")
 	var failed []string
 	for _, c := range levels {
-		rn := bench.Runner{BaseURL: baseURL, Concurrency: c, Duration: duration, Warmup: warmup, Seed: seed, HTTP: bench.NewHTTPClient(c)}
+		rn := &bench.Runner{URLs: urls, Concurrency: c, Duration: duration, Warmup: warmup, Seed: seed,
+			HTTP: bench.NewHTTPClient(c), Timeline: timelineEvery}
 		for _, w := range selected {
 			if ctx.Err() != nil {
 				break
@@ -135,7 +152,10 @@ func run(target, baseURL, esURL, alias, workloads, concList string, duration, wa
 			rep.Results = append(rep.Results, s)
 			f := func(x float64) string { return strconv.FormatFloat(x, 'f', 1, 64) }
 			fmt.Printf(row, s.Workload, c, s.Requests, s.Errors, f(s.QPS), f(s.P50ms), f(s.P95ms), f(s.P99ms), f(s.MaxMs),
-				f(s.MeanTookMs), strconv.FormatFloat(s.MeanHits, 'f', 0, 64))
+				f(s.MeanTookMs), strconv.FormatFloat(s.MeanHits, 'f', 0, 64), s.Retries)
+			for _, b := range s.Timeline {
+				fmt.Printf("  t=%6.1fs requests %6d errors %5d retries %5d p95 %8.1f ms\n", b.StartSec, b.Requests, b.Errors, b.Retries, b.P95ms)
+			}
 			if s.ErrorRate > maxErr {
 				failed = append(failed, fmt.Sprintf("%s@c=%d error rate %.3f", s.Workload, c, s.ErrorRate))
 			}

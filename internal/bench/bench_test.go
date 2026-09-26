@@ -77,11 +77,41 @@ func TestRunnerMeasuresAndCountsErrors(t *testing.T) {
 		_, _ = w.Write([]byte(`{"took":3,"timed_out":false,"_shards":{"failed":0},"hits":{"total":{"value":7}}}`))
 	}))
 	defer srv.Close()
-	rn := Runner{BaseURL: srv.URL, Concurrency: 4, Duration: 200 * time.Millisecond, HTTP: NewHTTPClient(4)}
+	rn := &Runner{URLs: []string{srv.URL}, Concurrency: 4, Duration: 200 * time.Millisecond, HTTP: NewHTTPClient(4)}
 	s := rn.Run(context.Background(), Workload{Name: "x", Build: func(*rand.Rand) Request {
 		return Request{Method: "POST", Path: "/i/_search", Body: []byte(`{}`)}
 	}})
 	if s.Requests == 0 || s.Errors == 0 || s.ErrorRate > 0.2 || s.MeanHits != 7 || s.MeanTookMs != 3 {
 		t.Fatalf("unexpected summary: %+v", s)
+	}
+}
+
+func TestRunnerFailsOverToAnotherNode(t *testing.T) {
+	ok := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"took":1,"_shards":{"failed":0},"hits":{"total":{"value":1}}}`))
+	}))
+	defer ok.Close()
+	partial := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"took":1,"_shards":{"failed":1},"hits":{"total":{"value":1}}}`))
+	}))
+	defer partial.Close()
+	down := httptest.NewServer(http.NotFoundHandler())
+	down.Close() // connection refused from now on
+
+	build := func(*rand.Rand) Request { return Request{Method: "POST", Path: "/i/_search", Body: []byte(`{}`)} }
+	rn := &Runner{URLs: []string{ok.URL, down.URL}, Concurrency: 2, Duration: 200 * time.Millisecond,
+		HTTP: NewHTTPClient(2), Timeline: 100 * time.Millisecond}
+	s := rn.Run(context.Background(), Workload{Name: "x", Build: build})
+	if s.Errors != 0 || s.Retries == 0 || s.Retries > s.Requests {
+		t.Fatalf("requests to the dead node must be retried on the live one: %+v", s)
+	}
+	if len(s.Timeline) < 2 || s.Timeline[0].Requests == 0 {
+		t.Fatalf("expected a timeline: %+v", s.Timeline)
+	}
+
+	rn = &Runner{URLs: []string{partial.URL}, Concurrency: 1, Duration: 50 * time.Millisecond, HTTP: NewHTTPClient(1)}
+	s = rn.Run(context.Background(), Workload{Name: "x", Build: build})
+	if s.Errors == 0 || s.Partial != s.Errors {
+		t.Fatalf("partial results must count as errors: %+v", s)
 	}
 }

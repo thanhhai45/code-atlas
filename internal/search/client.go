@@ -163,6 +163,27 @@ func (c *Client) CreateIndexWithShards(ctx context.Context, name string, shards 
 	return c.do(ctx, http.MethodPut, "/"+url.PathEscape(name), def, "", nil)
 }
 
+// WaitForGreen blocks until every shard copy of index is allocated and started
+// (health green), e.g. after adding replicas.
+func (c *Client) WaitForGreen(ctx context.Context, index string) error {
+	for {
+		var h struct {
+			Status   string `json:"status"`
+			TimedOut bool   `json:"timed_out"`
+		}
+		path := "/_cluster/health/" + url.PathEscape(index) + "?wait_for_status=green&timeout=20s"
+		if err := c.do(ctx, http.MethodGet, path, nil, "", &h); err != nil {
+			return err
+		}
+		if h.Status == "green" {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+	}
+}
+
 // ForceMerge merges each shard of an index down to at most maxSegments segments
 // and waits for it to finish. A merge of a large index takes minutes, longer
 // than the HTTP timeout, so it runs as a background task that is polled.
