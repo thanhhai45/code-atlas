@@ -42,8 +42,8 @@ bench: ## Benchmark every workload against repositories_bench (P50/P95/P99, QPS)
 test: ## Run Go tests
 	go test -race ./...
 
-test-integration: ## Run integration tests against the seeded Elasticsearch (needs make up && make seed)
-	EMBEDDINGS_URL=http://localhost:8000 go test -count=1 -tags integration ./internal/search/
+test-integration: ## Run integration tests against the seeded Elasticsearch and PostgreSQL (needs make up && make seed)
+	EMBEDDINGS_URL=http://localhost:8000 go test -count=1 -tags integration ./internal/search/ ./internal/store/
 
 lint: ## go vet + gofmt + web lint/typecheck
 	go vet ./...

@@ -281,6 +281,39 @@ func (c *Client) BulkIndex(ctx context.Context, index string, repos []model.Repo
 	return out, nil
 }
 
+// DeleteDocuments removes repositories from the index behind the alias.
+// Documents that do not exist are not an error.
+func (c *Client) DeleteDocuments(ctx context.Context, ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	for _, id := range ids {
+		if err := enc.Encode(map[string]any{"delete": map[string]any{"_index": c.alias, "_id": strconv.FormatInt(id, 10)}}); err != nil {
+			return err
+		}
+	}
+	var res struct {
+		Items []map[string]struct {
+			Status int             `json:"status"`
+			ID     string          `json:"_id"`
+			Error  json.RawMessage `json:"error"`
+		} `json:"items"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/_bulk", buf.Bytes(), "application/x-ndjson", &res); err != nil {
+		return err
+	}
+	for _, item := range res.Items {
+		for _, v := range item {
+			if v.Status >= 300 && v.Status != http.StatusNotFound {
+				return fmt.Errorf("delete id=%s: status %d %s", v.ID, v.Status, truncate(string(v.Error), 300))
+			}
+		}
+	}
+	return nil
+}
+
 // ToDocument converts a repository into its Elasticsearch document.
 func ToDocument(r model.Repository) map[string]any {
 	doc := map[string]any{

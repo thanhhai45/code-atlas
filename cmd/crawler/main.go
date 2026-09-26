@@ -120,8 +120,17 @@ func run(o options) error {
 // recovered later with -reindex because PostgreSQL already has them.
 func ingest(ctx context.Context, db *store.Store, es *search.Client, run *store.CrawlRun, repos []model.Repository) error {
 	run.Fetched += len(repos)
-	if err := db.UpsertRepositories(ctx, repos); err != nil {
+	displaced, err := db.UpsertRepositories(ctx, repos)
+	if err != nil {
 		return fmt.Errorf("upsert: %w", err)
+	}
+	if len(displaced) > 0 {
+		// Stale rows whose name now belongs to another repository (renamed,
+		// transferred or deleted on GitHub, or bundled sample data).
+		slog.Info("removed stale repositories that held a name now in use", "ids", displaced)
+		if err := es.DeleteDocuments(ctx, displaced); err != nil {
+			slog.Warn("could not delete stale repositories from the index; run -reindex", "err", err)
+		}
 	}
 	res, err := es.BulkIndex(ctx, "", repos)
 	if err != nil {

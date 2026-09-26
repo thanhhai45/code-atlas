@@ -95,16 +95,50 @@ ON CONFLICT (github_id) DO UPDATE SET
     embedding = COALESCE(EXCLUDED.embedding, repositories.embedding),
     synced_at = now()`
 
-// UpsertRepositories writes a batch idempotently: re-running a crawl never duplicates rows.
-func (s *Store) UpsertRepositories(ctx context.Context, repos []model.Repository) error {
-	batch := &pgx.Batch{}
-	for _, r := range repos {
-		batch.Queue(upsertSQL,
-			r.ID, r.Name, r.FullName, r.Owner, r.Description, r.URL, r.Homepage, r.Language, nonNil(r.Topics),
-			r.License, r.LicenseName, r.Stars, r.Forks, r.Watchers, r.OpenIssues, r.DefaultBranch,
-			r.Archived, r.Fork, model.TruncateReadme(r.Readme), r.CreatedAt, r.UpdatedAt, r.PushedAt, nilIfEmpty(r.Embedding))
-	}
-	return s.pool.SendBatch(ctx, batch).Close()
+// displaceSQL frees a repository's full name from any other row. The GitHub id
+// is a repository's identity; its name belongs to it only until it is renamed,
+// transferred or deleted, and then another repository can take the name. The
+// row still holding it is stale (GitHub names are unique at any one time), as
+// are the bundled sample rows, which use real names with synthetic ids.
+const displaceSQL = `DELETE FROM repositories WHERE lower(full_name) = lower($1) AND github_id <> $2 RETURNING github_id`
+
+// UpsertRepositories writes a batch idempotently: re-running a crawl never
+// duplicates rows. It returns the ids of stale rows it deleted because their
+// full name now belongs to a repository in the batch, so that the caller can
+// delete them from the search index too.
+func (s *Store) UpsertRepositories(ctx context.Context, repos []model.Repository) ([]int64, error) {
+	var displaced []int64
+	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		displaced = displaced[:0]
+		batch := &pgx.Batch{}
+		for _, r := range repos {
+			batch.Queue(displaceSQL, r.FullName, r.ID)
+			batch.Queue(upsertSQL,
+				r.ID, r.Name, r.FullName, r.Owner, r.Description, r.URL, r.Homepage, r.Language, nonNil(r.Topics),
+				r.License, r.LicenseName, r.Stars, r.Forks, r.Watchers, r.OpenIssues, r.DefaultBranch,
+				r.Archived, r.Fork, model.TruncateReadme(r.Readme), r.CreatedAt, r.UpdatedAt, r.PushedAt, nilIfEmpty(r.Embedding))
+		}
+		br := tx.SendBatch(ctx, batch)
+		for _, r := range repos {
+			rows, err := br.Query()
+			if err != nil {
+				br.Close()
+				return err
+			}
+			ids, err := pgx.CollectRows(rows, pgx.RowTo[int64])
+			if err != nil {
+				br.Close()
+				return err
+			}
+			displaced = append(displaced, ids...)
+			if _, err := br.Exec(); err != nil {
+				br.Close()
+				return fmt.Errorf("repository %d (%s): %w", r.ID, r.FullName, err)
+			}
+		}
+		return br.Close()
+	})
+	return displaced, err
 }
 
 const selectColumns = `github_id, name, full_name, owner, description, url, homepage, language, topics,
