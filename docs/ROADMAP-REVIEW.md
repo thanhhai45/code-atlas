@@ -103,9 +103,11 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 7 | Facets multi-select đúng chuẩn (post_filter + filter agg), stars range, activity date_range | ✅ |
 | 9 | Embeddings (ai-worker: FastAPI + all-MiniLM-L6-v2/ONNX), kNN semantic + hybrid (BM25 + kNN, linear fusion) search, similar repos bằng kNN; đo bằng `rankeval -semantic-grid` sau khi chấm pool — lexical vẫn tốt nhất trên dữ liệu mẫu nên để mặc định (xem `docs/experiments/04`) | ✅ (opt-in) |
 | 10 | `cmd/datagen` (dữ liệu tổng hợp: Pareto stars, Zipf topics, vector theo cụm) + `cmd/bench` (16 workload, P50/P95/P99, QPS, error rate); baseline 100K và 1M docs; tìm và sửa highlight làm chậm `/search` 3× — xem `docs/experiments/05` | ✅ |
+| 11 | So sánh 1/3/5 primary shard trên 1M docs (`datagen -shards`, `-force-merge`): 3 shard giảm ~2× độ trễ `/search` và aggregations khi còn core rảnh, nhưng giảm throughput query rẻ khi bão hoà; phát hiện concurrent segment search (8.12+) đã song song hoá query có score ngay trong 1 shard — xem `docs/experiments/06`. Replica để lại Phase 12 (cần nhiều node) | ✅ (1 node) |
 | 13 | Versioned index + alias swap reindex | ✅ (sớm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
 business signals và semantic/hybrid trên dữ liệu thật (chấm pool trước khi đọc số), (3) viết kết quả cho
-`docs/experiments/01-fundamentals.md`, (4) Phase 11: so sánh 1/3/5 shard và replica bằng `cmd/bench` trên 1M docs.
+`docs/experiments/01-fundamentals.md`, (4) Phase 12: cluster 3 node bằng Docker Compose, đo replica (throughput,
+recovery time) và 3 shard trải trên nhiều node, (5) giảm chi phí mỗi query ở 1M (score ít field hơn, cache facet).

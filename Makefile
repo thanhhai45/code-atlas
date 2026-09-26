@@ -31,9 +31,10 @@ rankeval: ## Measure relevance against testdata/judgments.json (needs make seed)
 	go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
 
 BENCH_DOCS ?= 100000
+BENCH_SHARDS ?= 1
 
-datagen: ## Load BENCH_DOCS synthetic repositories into the repositories_bench alias
-	go run ./cmd/datagen -n $(BENCH_DOCS)
+datagen: ## Load BENCH_DOCS synthetic repositories (BENCH_SHARDS primaries) into repositories_bench
+	go run ./cmd/datagen -n $(BENCH_DOCS) -shards $(BENCH_SHARDS)
 
 bench: ## Benchmark every workload against repositories_bench (P50/P95/P99, QPS)
 	go run ./cmd/bench -c 8 -d 20s

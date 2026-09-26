@@ -142,6 +142,7 @@ make datagen BENCH_DOCS=100000   # synthetic repositories into the repositories_
 make bench                       # 16 workloads, 8 workers, 20 s each: P50/P95/P99, QPS, errors
 go run ./cmd/bench -list         # workload descriptions
 go run ./cmd/bench -workloads full_search,hybrid -c 1,4,16 -d 30s -json out.json
+go run ./cmd/datagen -n 1000000 -vectors=false -shards 3 -force-merge -alias repositories_bench_s3
 ```
 
 `cmd/datagen` generates realistic data at any scale (power-law stars, Zipf topics and vocabulary, topic-clustered
@@ -149,7 +150,9 @@ embeddings), loads it into its own alias (never the live one) and reports indexi
 the roadmap's query types (exact, full text, bool + filter, function score, aggregations, fuzzy, wildcard,
 suggest, kNN, hybrid, deep `from` vs `search_after`, and the complete `/search` request) against Elasticsearch
 or, with `-target api`, through the Go API. Results and analysis:
-[`docs/experiments/05-benchmark-baseline.md`](docs/experiments/05-benchmark-baseline.md).
+[`docs/experiments/05-benchmark-baseline.md`](docs/experiments/05-benchmark-baseline.md). Shard count (1 / 3 / 5
+primaries at 1M documents, `-shards`, `-force-merge`):
+[`docs/experiments/06-sharding.md`](docs/experiments/06-sharding.md).
 
 ## Repository layout
 

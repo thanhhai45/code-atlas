@@ -3,6 +3,7 @@
 //
 //	datagen -n 100000                      # 100K docs into the "repositories_bench" alias
 //	datagen -n 1000000 -vectors=false      # 1M docs without embeddings
+//	datagen -n 1000000 -shards 3 -alias repositories_bench_s3 -force-merge
 //
 // It writes a new versioned index behind its own alias (never the live
 // "repositories" alias), with replicas and refresh disabled during the load,
@@ -30,6 +31,7 @@ import (
 type Report struct {
 	Index         string            `json:"index"`
 	Alias         string            `json:"alias"`
+	Shards        int               `json:"shards"`
 	Docs          int               `json:"docs"`
 	Failed        int               `json:"failed"`
 	Vectors       bool              `json:"vectors"`
@@ -39,6 +41,7 @@ type Report struct {
 	LoadSeconds   float64           `json:"load_seconds"`
 	DocsPerSec    float64           `json:"docs_per_sec"`
 	RefreshSecs   float64           `json:"refresh_seconds"`
+	MergeSecs     float64           `json:"force_merge_seconds,omitempty"`
 	IndexStats    search.IndexStats `json:"index_stats"`
 	BytesPerDoc   float64           `json:"bytes_per_doc"`
 	ElasticURL    string            `json:"-"`
@@ -54,16 +57,31 @@ func main() {
 	readme := flag.Bool("readme", true, "generate README bodies")
 	seed := flag.Uint64("seed", 1, "generator seed")
 	keepOld := flag.Bool("keep-old", false, "keep the index previously behind the alias")
+	shards := flag.Int("shards", 1, "primary shards of the new index")
+	forceMerge := flag.Bool("force-merge", false, "force-merge every shard to one segment after the load")
 	jsonOut := flag.String("json", "", "write the report to this file")
 	flag.Parse()
 
-	if err := run(*n, *alias, *batch, *workers, *vectors, *readme, *seed, *keepOld, *jsonOut); err != nil {
+	opts := options{
+		n: *n, alias: *alias, batchSize: *batch, workers: *workers, vectors: *vectors, readme: *readme,
+		seed: *seed, keepOld: *keepOld, shards: *shards, forceMerge: *forceMerge, jsonOut: *jsonOut,
+	}
+	if err := run(opts); err != nil {
 		slog.Error("datagen failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(n int, alias string, batchSize, workers int, vectors, readme bool, seed uint64, keepOld bool, jsonOut string) error {
+type options struct {
+	n, batchSize, workers, shards int
+	alias, jsonOut                string
+	vectors, readme, keepOld      bool
+	forceMerge                    bool
+	seed                          uint64
+}
+
+func run(o options) error {
+	n, alias, batchSize, workers, vectors, readme, seed := o.n, o.alias, o.batchSize, o.workers, o.vectors, o.readme, o.seed
 	cfg := config.Load()
 	if alias == cfg.SearchAlias {
 		return fmt.Errorf("refusing to overwrite the live alias %q; pick another -alias", alias)
@@ -76,7 +94,7 @@ func run(n int, alias string, batchSize, workers int, vectors, readme bool, seed
 		return err
 	}
 	index := es.NewIndexName(time.Now())
-	if err := es.CreateIndex(ctx, index); err != nil {
+	if err := es.CreateIndexWithShards(ctx, index, o.shards); err != nil {
 		return err
 	}
 	// Bulk-load settings: no replicas to copy to, no refreshes to pay for.
@@ -141,10 +159,19 @@ func run(n int, alias string, batchSize, workers int, vectors, readme bool, seed
 		return err
 	}
 	refresh := time.Since(refreshStart)
+	var merge time.Duration
+	if o.forceMerge {
+		slog.Info("force-merging to one segment per shard", "index", index)
+		mergeStart := time.Now()
+		if err := es.ForceMerge(ctx, index, 1); err != nil {
+			return err
+		}
+		merge = time.Since(mergeStart)
+	}
 	if err := es.SwapAlias(ctx, index, old); err != nil {
 		return err
 	}
-	if !keepOld {
+	if !o.keepOld {
 		for _, idx := range old {
 			_ = es.DeleteIndex(ctx, idx)
 		}
@@ -155,7 +182,7 @@ func run(n int, alias string, batchSize, workers int, vectors, readme bool, seed
 	}
 
 	rep := Report{
-		Index: index, Alias: alias, Docs: int(indexed.Load()), Failed: int(failed.Load()),
+		Index: index, Alias: alias, Shards: o.shards, MergeSecs: merge.Seconds(), Docs: int(indexed.Load()), Failed: int(failed.Load()),
 		Vectors: vectors, Readme: readme, BatchSize: batchSize, Workers: workers,
 		LoadSeconds: load.Seconds(), DocsPerSec: float64(indexed.Load()) / load.Seconds(),
 		RefreshSecs: refresh.Seconds(), IndexStats: stats, GeneratorSeed: seed,
@@ -163,12 +190,12 @@ func run(n int, alias string, batchSize, workers int, vectors, readme bool, seed
 	if stats.Docs > 0 {
 		rep.BytesPerDoc = float64(stats.StoreBytes) / float64(stats.Docs)
 	}
-	fmt.Printf("indexed %d docs (%d failed) into %s -> %s in %.1fs: %.0f docs/s; refresh %.1fs; %.1f MB, %d segments, %.0f bytes/doc\n",
-		rep.Docs, rep.Failed, index, alias, rep.LoadSeconds, rep.DocsPerSec, rep.RefreshSecs,
+	fmt.Printf("indexed %d docs (%d failed) into %s (%d shards) -> %s in %.1fs: %.0f docs/s; refresh %.1fs; merge %.1fs; %.1f MB, %d segments, %.0f bytes/doc\n",
+		rep.Docs, rep.Failed, index, o.shards, alias, rep.LoadSeconds, rep.DocsPerSec, rep.RefreshSecs, rep.MergeSecs,
 		float64(stats.StoreBytes)/1e6, stats.Segments, rep.BytesPerDoc)
-	if jsonOut != "" {
+	if o.jsonOut != "" {
 		buf, _ := json.MarshalIndent(rep, "", "  ")
-		if err := os.WriteFile(jsonOut, append(buf, '\n'), 0o644); err != nil {
+		if err := os.WriteFile(o.jsonOut, append(buf, '\n'), 0o644); err != nil {
 			return err
 		}
 	}

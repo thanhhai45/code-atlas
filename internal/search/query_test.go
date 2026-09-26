@@ -251,3 +251,32 @@ func TestHighlightQueryIsNotFuzzy(t *testing.T) {
 		t.Error("the highlight query must not be fuzzy: expanding fuzzy terms per hit dominates /search latency")
 	}
 }
+
+func TestIndexDefinitionWithShards(t *testing.T) {
+	def, err := IndexDefinitionWithShards(3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Settings struct {
+			Shards   int            `json:"number_of_shards"`
+			Replicas int            `json:"number_of_replicas"`
+			Analysis map[string]any `json:"analysis"`
+		} `json:"settings"`
+		Mappings struct {
+			Properties map[string]any `json:"properties"`
+		} `json:"mappings"`
+	}
+	if err := json.Unmarshal(def, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Settings.Shards != 3 || got.Settings.Replicas != 0 {
+		t.Errorf("shards=%d replicas=%d, want 3 and 0", got.Settings.Shards, got.Settings.Replicas)
+	}
+	if len(got.Settings.Analysis) == 0 || len(got.Mappings.Properties) == 0 {
+		t.Error("analysis and mappings must be kept")
+	}
+	if _, err := IndexDefinitionWithShards(0); err == nil {
+		t.Error("0 shards must be rejected")
+	}
+}

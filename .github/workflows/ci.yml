@@ -113,5 +113,5 @@ jobs:
           EMBEDDINGS_URL: http://localhost:8000
       - name: Benchmark smoke test (every workload runs without errors)
         run: |
-          go run ./cmd/datagen -n 3000 -alias bench_ci
+          go run ./cmd/datagen -n 3000 -alias bench_ci -shards 2 -force-merge
           go run ./cmd/bench -alias bench_ci -c 2 -d 2s -warmup 0 -max-error-rate 0
