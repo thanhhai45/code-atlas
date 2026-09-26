@@ -109,6 +109,10 @@ missing embeddings when `EMBEDDINGS_URL` is set, and swaps the alias with no dow
 
 Every run is recorded in the `crawl_runs` table (fetched / indexed / failed / status).
 
+Repositories are keyed by GitHub id; a full name belongs to whichever id holds it now. When a crawled
+repository's name is still held by another row (renamed, transferred or deleted on GitHub, or the bundled
+sample data, which uses real names with synthetic ids), that stale row is deleted from PostgreSQL and the index.
+
 **Getting past the 1000-result cap.** The GitHub Search API returns at most 1000 results per query, so the
 crawler splits the crawl into many queries:
 
