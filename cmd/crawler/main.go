@@ -37,6 +37,12 @@ type options struct {
 	reindex    bool
 	keepOld    bool
 	batchSize  int
+	// reindex safety and layout (see reindex.go)
+	shards       int
+	replicas     int
+	greenTimeout time.Duration
+	maxShrink    float64
+	forceMerge   bool
 }
 
 func main() {
@@ -50,6 +56,11 @@ func main() {
 	flag.BoolVar(&o.reindex, "reindex", false, "rebuild the search index from PostgreSQL into a new versioned index and swap the alias")
 	flag.BoolVar(&o.keepOld, "keep-old", false, "with -reindex: keep the previous index instead of deleting it")
 	flag.IntVar(&o.batchSize, "batch", 500, "bulk indexing batch size")
+	flag.IntVar(&o.shards, "shards", 0, "with -reindex: primary shards of the new index (0 = same as the current index)")
+	flag.IntVar(&o.replicas, "replicas", -1, "with -reindex: replicas of the new index (-1 = same as the current index)")
+	flag.DurationVar(&o.greenTimeout, "green-timeout", 10*time.Minute, "with -reindex: how long to wait for the new index's replicas before giving up")
+	flag.Float64Var(&o.maxShrink, "max-shrink", 0.1, "with -reindex: refuse to swap if the new index has this fraction fewer documents than the current one")
+	flag.BoolVar(&o.forceMerge, "force-merge", false, "with -reindex: merge the new index to one segment per shard before adding replicas")
 	flag.Parse()
 
 	if err := run(o); err != nil {
@@ -229,72 +240,3 @@ func loadSeed(path string, sink func([]model.Repository) error) error {
 
 // reindex builds a brand-new index from PostgreSQL and atomically swaps the alias,
 // so searches keep being served from the old index until the new one is complete.
-func reindex(ctx context.Context, db *store.Store, es *search.Client, emb *embed.Client, o options) error {
-	old, err := es.AliasTargets(ctx)
-	if err != nil {
-		return err
-	}
-	name := es.NewIndexName(time.Now())
-	slog.Info("reindex: creating index", "index", name, "previous", old)
-	if err := es.CreateIndex(ctx, name); err != nil {
-		return err
-	}
-	total, failed, backfilled := 0, 0, 0
-	err = db.StreamRepositories(ctx, o.batchSize, func(batch []model.Repository) error {
-		// Backfill embeddings for rows stored before embeddings existed (or while
-		// the ai-worker was down) and persist them so the next reindex is free.
-		if emb != nil {
-			var missing []model.Repository
-			var idx []int
-			for i, r := range batch {
-				if len(r.Embedding) == 0 {
-					missing = append(missing, r)
-					idx = append(idx, i)
-				}
-			}
-			if len(missing) > 0 {
-				if err := embedAll(ctx, emb, missing); err != nil {
-					return fmt.Errorf("backfill embeddings: %w", err)
-				}
-				if err := db.UpdateEmbeddings(ctx, missing); err != nil {
-					return err
-				}
-				for j, i := range idx {
-					batch[i].Embedding = missing[j].Embedding
-				}
-				backfilled += len(missing)
-			}
-		}
-		res, err := es.BulkIndex(ctx, name, batch)
-		if err != nil {
-			return err
-		}
-		total += res.Indexed
-		failed += res.Failed
-		slog.Info("reindex: batch", "indexed", total, "failed", failed, "embeddings_backfilled", backfilled)
-		return nil
-	})
-	if err == nil && failed > 0 {
-		err = fmt.Errorf("%d documents failed to index", failed)
-	}
-	if err != nil {
-		slog.Error("reindex aborted; alias unchanged", "err", err)
-		_ = es.DeleteIndex(context.WithoutCancel(ctx), name)
-		return err
-	}
-	if err := es.Refresh(ctx, name); err != nil {
-		return err
-	}
-	if err := es.SwapAlias(ctx, name, old); err != nil {
-		return err
-	}
-	slog.Info("reindex: alias swapped", "alias", es.Alias(), "index", name, "documents", total)
-	if !o.keepOld {
-		for _, idx := range old {
-			if err := es.DeleteIndex(ctx, idx); err != nil {
-				slog.Warn("could not delete old index", "index", idx, "err", err)
-			}
-		}
-	}
-	return nil
-}

@@ -102,11 +102,23 @@ crawler [flags]
   -seed file        load repositories from JSON instead of GitHub
   -reindex          rebuild the index from PostgreSQL into a new index and swap the alias
   -keep-old         with -reindex, keep the previous index
+  -shards N         with -reindex, primary shards of the new index (default: same as the live index)
+  -replicas N       with -reindex, replicas of the new index (default: same as the live index)
+  -green-timeout d  with -reindex, how long to wait for the replicas (default 10m)
+  -max-shrink f     with -reindex, refuse to swap if the new index is this fraction smaller (default 0.1)
+  -force-merge      with -reindex, merge to one segment per shard before adding replicas
 ```
 
 **Upgrading an existing index.** Mapping changes (such as the `embedding` field added for semantic search) need
 a new index: run `make reindex` (`crawler -reindex`). It builds a new versioned index from PostgreSQL, backfills
 missing embeddings when `EMBEDDINGS_URL` is set, and swaps the alias with no downtime.
+
+The swap happens only once the new index is as safe to serve as the live one. It keeps the live index's shard
+and replica counts, loads with no replicas (faster), then adds them and waits for green. It checks the document
+count and refuses a new index more than 10% smaller than the live one (a wrong `DATABASE_URL`, a failed load).
+Any failure deletes the new index and leaves the alias alone. After the swap, rows the crawler wrote while the
+reindex ran are indexed again, so no update is lost. Removals made during the reindex (a repository name
+moving to a new id) are the one gap: the next reindex fixes them.
 
 Every run is recorded in the `crawl_runs` table (fetched / indexed / failed / status).
 

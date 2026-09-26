@@ -214,6 +214,49 @@ func (c *Client) CreateIndexWithShards(ctx context.Context, name string, shards 
 	return c.do(ctx, http.MethodPut, "/"+url.PathEscape(name), def, "", nil)
 }
 
+// IndexLayout is the shard layout of an index.
+type IndexLayout struct {
+	Shards   int
+	Replicas int
+}
+
+// Layout returns the primary shard and replica counts of an index.
+func (c *Client) Layout(ctx context.Context, index string) (IndexLayout, error) {
+	var res map[string]struct {
+		Settings struct {
+			Index struct {
+				Shards   string `json:"number_of_shards"`
+				Replicas string `json:"number_of_replicas"`
+			} `json:"index"`
+		} `json:"settings"`
+	}
+	path := "/" + url.PathEscape(index) + "/_settings?filter_path=*.settings.index.number_of_shards,*.settings.index.number_of_replicas"
+	if err := c.do(ctx, http.MethodGet, path, nil, "", &res); err != nil {
+		return IndexLayout{}, err
+	}
+	for _, v := range res {
+		shards, err := strconv.Atoi(v.Settings.Index.Shards)
+		if err != nil {
+			return IndexLayout{}, fmt.Errorf("number_of_shards %q: %w", v.Settings.Index.Shards, err)
+		}
+		replicas, err := strconv.Atoi(v.Settings.Index.Replicas)
+		if err != nil {
+			return IndexLayout{}, fmt.Errorf("number_of_replicas %q: %w", v.Settings.Index.Replicas, err)
+		}
+		return IndexLayout{Shards: shards, Replicas: replicas}, nil
+	}
+	return IndexLayout{}, fmt.Errorf("%w: index %s", ErrNotFound, index)
+}
+
+// Count returns the number of documents in an index (refresh it first).
+func (c *Client) Count(ctx context.Context, index string) (int64, error) {
+	var res struct {
+		Count int64 `json:"count"`
+	}
+	err := c.do(ctx, http.MethodGet, "/"+url.PathEscape(index)+"/_count", nil, "", &res)
+	return res.Count, err
+}
+
 // WaitForGreen blocks until every shard copy of index is allocated and started
 // (health green), e.g. after adding replicas.
 func (c *Client) WaitForGreen(ctx context.Context, index string) error {
