@@ -24,7 +24,10 @@ GitHub API ──► crawler (Go) ──► PostgreSQL (source of truth)
 - **Multi-select facets**: language, license, topics, star ranges, activity — counts stay correct
   when filters are selected (`post_filter` + per-facet filter aggregations)
 - **Autocomplete** (`search_as_you_type`), **highlighting**, sorting, pagination
-- **Similar repositories** (`more_like_this` baseline)
+- **Semantic and hybrid search** (opt-in `mode=semantic|hybrid`): dense embeddings from the `ai-worker`
+  (all-MiniLM-L6-v2 on CPU) with Elasticsearch kNN; lexical stays the default because it measured best
+  ([experiment 04](docs/experiments/04-semantic-hybrid-search.md))
+- **Similar repositories** by embedding nearest neighbours (`more_like_this` fallback)
 - **Crawler**: GitHub pagination, primary/secondary rate limits, retry with backoff + jitter,
   idempotent upserts, bulk indexing, "star cursor" to get past the 1000-results-per-query cap
 - **Zero-downtime reindex**: build a new versioned index from PostgreSQL, then swap the alias atomically
@@ -38,8 +41,8 @@ Requirements: Docker with Compose. Elasticsearch needs ~2 GB RAM.
 
 ```bash
 cp .env.example .env          # optionally set GITHUB_TOKEN
-make up                       # postgres, redis, elasticsearch, api (:8080), web (:3000)
-make seed                     # load 50 bundled sample repositories
+make up                       # postgres, redis, elasticsearch, ai-worker, api (:8080), web (:3000)
+make seed                     # load 50 bundled sample repositories (with embeddings)
 open http://localhost:3000
 ```
 
@@ -75,7 +78,9 @@ go run ./cmd/crawler -seed testdata/seed_repositories.json
 
 `/search` parameters: `q`, `language`, `license`, `topic` (repeatable or comma-separated),
 `min_stars`, `max_stars`, `pushed_within` (`30d` \| `90d` \| `1y`), `sort` (`relevance` \| `stars` \| `updated`),
-`page`, `size` (≤ 100), `cursor`, `include_archived`, `include_forks`.
+`page`, `size` (≤ 100), `cursor`, `mode` (`lexical` default \| `hybrid` \| `semantic`), `include_archived`,
+`include_forks`. The response's `mode` field is the mode that actually ran: semantic modes need a text query,
+"best match" ordering and a reachable ai-worker, and fall back to lexical otherwise.
 
 Pagination: `page` works up to the 10,000-result window. Every full page also returns `next_cursor`; pass it
 back as `cursor` (with the same query, filters and sort) to fetch the next page with `search_after`, at any depth.
@@ -98,6 +103,10 @@ crawler [flags]
   -keep-old         with -reindex, keep the previous index
 ```
 
+**Upgrading an existing index.** Mapping changes (such as the `embedding` field added for semantic search) need
+a new index: run `make reindex` (`crawler -reindex`). It builds a new versioned index from PostgreSQL, backfills
+missing embeddings when `EMBEDDINGS_URL` is set, and swaps the alias with no downtime.
+
 Every run is recorded in the `crawl_runs` table (fetched / indexed / failed / status).
 
 **Getting past the 1000-result cap.** The GitHub Search API returns at most 1000 results per query, so the
@@ -116,7 +125,8 @@ authenticated limit is 30 requests/minute, so plan for roughly 3,000 repositorie
 
 ```bash
 make seed
-make rankeval    # NDCG@10, MRR@10, precision@5, recall@10 for the default and BM25-only rankings
+make rankeval           # NDCG@10, MRR@10, precision@5, recall@10 for the default and BM25-only rankings
+make rankeval-semantic  # also semantic / hybrid configurations, plus the unrated pool to judge
 ```
 
 `cmd/rankeval` runs every query in `testdata/judgments.json` through `_rank_eval`, prints overall and
@@ -131,6 +141,7 @@ weightings and reports the best one ([experiment 03](docs/experiments/03-busines
 cmd/api            HTTP API entrypoint
 cmd/crawler        GitHub ingestion + reindex entrypoint
 cmd/rankeval       Relevance evaluation against a judgment list
+internal/embed     ai-worker client
 internal/api       Gin handlers
 internal/search    Elasticsearch client, index definition (index.json), query builder
 internal/github    GitHub REST client (pagination, rate limits, retries)
@@ -138,6 +149,7 @@ internal/store     PostgreSQL store + embedded migrations
 internal/cache     Best-effort Redis cache
 internal/metrics   Prometheus instruments
 web/               Next.js + TypeScript + Tailwind UI
+ai-worker/         Python + FastAPI embedding service (fastembed / ONNX, no GPU)
 infrastructure/    Dockerfiles (Terraform/AWS later)
 docs/              Roadmap, review, architecture, experiments, benchmarks, incidents
 testdata/          Sample seed data and relevance judgments

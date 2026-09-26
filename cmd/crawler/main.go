@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/thanhhai45/code-atlas/internal/config"
+	"github.com/thanhhai45/code-atlas/internal/embed"
 	"github.com/thanhhai45/code-atlas/internal/github"
 	"github.com/thanhhai45/code-atlas/internal/model"
 	"github.com/thanhhai45/code-atlas/internal/search"
@@ -76,7 +77,7 @@ func run(o options) error {
 	}
 
 	if o.reindex {
-		return reindex(ctx, db, es, o)
+		return reindex(ctx, db, es, embedder(cfg), o)
 	}
 
 	label := fmt.Sprintf("github: %q min-stars=%d max=%d", o.qualifiers, o.minStars, o.max)
@@ -89,6 +90,10 @@ func run(o options) error {
 	}
 	start := time.Now()
 	sink := func(repos []model.Repository) error { return ingest(ctx, db, es, run, repos) }
+	if emb := embedder(cfg); emb != nil {
+		// Wrapped first so it runs last: READMEs are part of the embedded text.
+		sink = withEmbeddings(ctx, emb, sink)
+	}
 
 	if o.seed != "" {
 		err = loadSeed(o.seed, sink)
@@ -131,6 +136,43 @@ func ingest(ctx context.Context, db *store.Store, es *search.Client, run *store.
 	}
 	slog.Info("batch ingested", "batch", len(repos), "total_fetched", run.Fetched, "total_indexed", run.Indexed)
 	return nil
+}
+
+// embedder returns the ai-worker client, or nil when EMBEDDINGS_URL is unset.
+func embedder(cfg config.Config) *embed.Client {
+	if cfg.EmbeddingsURL == "" {
+		slog.Info("EMBEDDINGS_URL not set: repositories are indexed without embeddings")
+		return nil
+	}
+	return embed.NewClient(cfg.EmbeddingsURL)
+}
+
+// embedAll fills in the embedding of every repository in repos.
+func embedAll(ctx context.Context, emb *embed.Client, repos []model.Repository) error {
+	texts := make([]string, len(repos))
+	for i, r := range repos {
+		texts[i] = r.EmbeddingText()
+	}
+	vectors, err := emb.Embed(ctx, texts)
+	if err != nil {
+		return err
+	}
+	for i := range repos {
+		repos[i].Embedding = vectors[i]
+	}
+	return nil
+}
+
+// withEmbeddings decorates a sink so each batch is embedded before it is stored.
+// An embedding failure does not stop the crawl: the batch is stored without
+// vectors and a later -reindex backfills them.
+func withEmbeddings(ctx context.Context, emb *embed.Client, next func([]model.Repository) error) func([]model.Repository) error {
+	return func(repos []model.Repository) error {
+		if err := embedAll(ctx, emb, repos); err != nil {
+			slog.Warn("embedding failed; storing batch without vectors", "count", len(repos), "err", err)
+		}
+		return next(repos)
+	}
 }
 
 // withReadmes decorates a sink so each batch gets its READMEs fetched concurrently.
@@ -178,7 +220,7 @@ func loadSeed(path string, sink func([]model.Repository) error) error {
 
 // reindex builds a brand-new index from PostgreSQL and atomically swaps the alias,
 // so searches keep being served from the old index until the new one is complete.
-func reindex(ctx context.Context, db *store.Store, es *search.Client, o options) error {
+func reindex(ctx context.Context, db *store.Store, es *search.Client, emb *embed.Client, o options) error {
 	old, err := es.AliasTargets(ctx)
 	if err != nil {
 		return err
@@ -188,15 +230,39 @@ func reindex(ctx context.Context, db *store.Store, es *search.Client, o options)
 	if err := es.CreateIndex(ctx, name); err != nil {
 		return err
 	}
-	total, failed := 0, 0
+	total, failed, backfilled := 0, 0, 0
 	err = db.StreamRepositories(ctx, o.batchSize, func(batch []model.Repository) error {
+		// Backfill embeddings for rows stored before embeddings existed (or while
+		// the ai-worker was down) and persist them so the next reindex is free.
+		if emb != nil {
+			var missing []model.Repository
+			var idx []int
+			for i, r := range batch {
+				if len(r.Embedding) == 0 {
+					missing = append(missing, r)
+					idx = append(idx, i)
+				}
+			}
+			if len(missing) > 0 {
+				if err := embedAll(ctx, emb, missing); err != nil {
+					return fmt.Errorf("backfill embeddings: %w", err)
+				}
+				if err := db.UpdateEmbeddings(ctx, missing); err != nil {
+					return err
+				}
+				for j, i := range idx {
+					batch[i].Embedding = missing[j].Embedding
+				}
+				backfilled += len(missing)
+			}
+		}
 		res, err := es.BulkIndex(ctx, name, batch)
 		if err != nil {
 			return err
 		}
 		total += res.Indexed
 		failed += res.Failed
-		slog.Info("reindex: batch", "indexed", total, "failed", failed)
+		slog.Info("reindex: batch", "indexed", total, "failed", failed, "embeddings_backfilled", backfilled)
 		return nil
 	})
 	if err == nil && failed > 0 {

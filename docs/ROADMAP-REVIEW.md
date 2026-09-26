@@ -81,7 +81,8 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 
 - **License Elasticsearch:** ES là AGPLv3 / SSPL / Elastic License 2.0 — self-host thoải mái. Một số tính năng
   (vd. một số dạng hybrid ranking/RRF, ML inference) phụ thuộc phiên bản và license tier — kiểm tra trước khi
-  thiết kế Phase 9; có thể tự fuse BM25 + kNN ở tầng ứng dụng. OpenSearch là phương án thay thế Apache-2.0.
+  thiết kế Phase 9; có thể tự fuse BM25 + kNN ở tầng ứng dụng. *Đã xác nhận ở Phase 9: trên license Basic,
+  `_rank_eval` từ chối RRF ("current license is non-compliant"), nên hybrid dùng linear fusion.* OpenSearch là phương án thay thế Apache-2.0.
 - **Redis làm queue:** đủ cho giai đoạn đầu; cân nhắc queue trên PostgreSQL (`FOR UPDATE SKIP LOCKED`) để
   bớt một thành phần và có transaction cùng dữ liệu.
 - **README rất dài** làm phình index và lệch BM25 length normalization → đã cắt ở 20KB.
@@ -100,10 +101,10 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 5 | Field boosts + function_score; judgment list 40 query + `cmd/rankeval` (`_rank_eval`: NDCG, MRR, precision, recall), cổng chặn regression trong CI; trọng số business signals đã tune bằng `rankeval -grid` (sum: 0.5·log stars + 1.0·recency) — xem `docs/experiments/02` và `03` | ✅ trên dữ liệu mẫu (cần tune lại với dữ liệu thật) |
 | 6 | Autocomplete (search_as_you_type), fuzzy, synonyms, highlight; from/size trong giới hạn 10K + `search_after` với cursor cho phân trang sâu (integration test trên ES thật trong CI) | ✅ |
 | 7 | Facets multi-select đúng chuẩn (post_filter + filter agg), stars range, activity date_range | ✅ |
-| 9 | Similar repositories bằng `more_like_this` (baseline lexical để so với vector sau này) | 🟡 baseline |
+| 9 | Embeddings (ai-worker: FastAPI + all-MiniLM-L6-v2/ONNX), kNN semantic + hybrid (BM25 + kNN, linear fusion) search, similar repos bằng kNN; đo bằng `rankeval -semantic-grid` sau khi chấm pool — lexical vẫn tốt nhất trên dữ liệu mẫu nên để mặc định (xem `docs/experiments/04`) | ✅ (opt-in) |
 | 13 | Versioned index + alias swap reindex | ✅ (sớm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
-business signals trên dữ liệu thật, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) semantic /
-hybrid search (Phase 9) cho các miss do khác từ vựng.
+business signals và semantic/hybrid trên dữ liệu thật (chấm pool trước khi đọc số), (3) viết kết quả cho
+`docs/experiments/01-fundamentals.md`, (4) Phase 10: benchmark tool (P50/P95/P99, QPS) và scale lên 100K+ documents.

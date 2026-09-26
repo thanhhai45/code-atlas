@@ -1,18 +1,18 @@
 {
-  "index": "repositories_20260925t174327",
+  "index": "repositories_20260926t042008",
   "queries": 40,
   "metrics": {
     "bm25_only": {
       "mrr@10": 1,
-      "ndcg@10": 0.9822434113953502,
+      "ndcg@10": 0.9789823127120707,
       "precision@5": 0.875,
-      "recall@10": 0.8441666666666666
+      "recall@10": 0.8379166666666666
     },
     "default": {
       "mrr@10": 1,
-      "ndcg@10": 0.9862665579006599,
+      "ndcg@10": 0.9830054592173804,
       "precision@5": 0.875,
-      "recall@10": 0.8441666666666666
+      "recall@10": 0.8379166666666666
     }
   },
   "per_query": {
@@ -117,7 +117,7 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
-        "recall@10": 0.3333333333333333
+        "recall@10": 0.25
       },
       "infrastructure-as-code": {
         "mrr@10": 1,
@@ -181,13 +181,13 @@
       },
       "postgres-vector-search": {
         "mrr@10": 1,
-        "ndcg@10": 0.9567687797312096,
+        "ndcg@10": 0.9654146767163787,
         "precision@5": 0.2,
         "recall@10": 1
       },
       "python-api-framework": {
         "mrr@10": 1,
-        "ndcg@10": 1,
+        "ndcg@10": 0.8609101556836468,
         "precision@5": 0.2,
         "recall@10": 1
       },
@@ -243,7 +243,7 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
-        "recall@10": 0.5
+        "recall@10": 0.3333333333333333
       },
       "trigram-code-search": {
         "mrr@10": 1,
@@ -359,7 +359,7 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
-        "recall@10": 0.3333333333333333
+        "recall@10": 0.25
       },
       "infrastructure-as-code": {
         "mrr@10": 1,
@@ -423,13 +423,13 @@
       },
       "postgres-vector-search": {
         "mrr@10": 1,
-        "ndcg@10": 0.9567687797312096,
+        "ndcg@10": 0.9654146767163787,
         "precision@5": 0.2,
         "recall@10": 1
       },
       "python-api-framework": {
         "mrr@10": 1,
-        "ndcg@10": 1,
+        "ndcg@10": 0.8609101556836468,
         "precision@5": 0.2,
         "recall@10": 1
       },
@@ -485,7 +485,7 @@
         "mrr@10": 1,
         "ndcg@10": 1,
         "precision@5": 1,
-        "recall@10": 0.5
+        "recall@10": 0.3333333333333333
       },
       "trigram-code-search": {
         "mrr@10": 1,
@@ -501,14 +501,5 @@
       }
     }
   },
-  "unrated": {
-    "go-elasticsearch-client": [
-      "zincsearch/zincsearch"
-    ],
-    "postgres-vector-search": [
-      "facebookresearch/faiss",
-      "blevesearch/bleve",
-      "typesense/typesense"
-    ]
-  }
+  "unrated": {}
 }

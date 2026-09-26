@@ -3,7 +3,7 @@
 export type RawParams = Record<string, string | string[] | undefined>;
 
 export const MULTI_KEYS = ["language", "license", "topic"] as const;
-const SINGLE_KEYS = ["q", "sort", "min_stars", "max_stars", "pushed_within", "page", "cursor", "include_archived"] as const;
+const SINGLE_KEYS = ["q", "sort", "min_stars", "max_stars", "pushed_within", "page", "cursor", "mode", "include_archived"] as const;
 
 export function toSearchParams(raw: RawParams): URLSearchParams {
   const out = new URLSearchParams();

@@ -3,6 +3,8 @@ package search
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/url"
 	"strconv"
 )
 
@@ -40,6 +42,8 @@ type Result struct {
 	// NextCursor continues after the last hit with search_after. It is set
 	// whenever the page is full, including pages reached with from+size.
 	NextCursor string `json:"next_cursor,omitempty"`
+	// Mode is the retrieval mode that actually ran (see Params.EffectiveMode).
+	Mode string `json:"mode"`
 }
 
 type esHit struct {
@@ -99,6 +103,7 @@ func (c *Client) Search(ctx context.Context, p Params) (Result, error) {
 		TookMS: res.Took,
 		Hits:   res.hits(),
 		Facets: map[string][]Bucket{},
+		Mode:   p.EffectiveMode(),
 	}
 	if n := len(res.Hits.Hits); n > 0 && n == p.Size {
 		last := res.Hits.Hits[n-1].Sort
@@ -139,10 +144,36 @@ func (c *Client) Suggest(ctx context.Context, prefix string, size int) ([]Hit, e
 	return res.hits(), nil
 }
 
+// documentEmbedding returns the stored vector of a repository (nil if it has
+// none) or ErrNotFound when the repository is not indexed.
+func (c *Client) documentEmbedding(ctx context.Context, id int64) ([]float32, error) {
+	var doc struct {
+		Source struct {
+			Embedding []float32 `json:"embedding"`
+		} `json:"_source"`
+	}
+	path := "/" + url.PathEscape(c.alias) + "/_doc/" + strconv.FormatInt(id, 10) + "?_source_includes=embedding"
+	if err := c.do(ctx, http.MethodGet, path, nil, "", &doc); err != nil {
+		return nil, err
+	}
+	return doc.Source.Embedding, nil
+}
+
 // Similar returns repositories similar to the given one.
+//
+// It uses the repository's embedding (nearest neighbours) when it has one and
+// falls back to lexical more_like_this for repositories indexed without one.
 func (c *Client) Similar(ctx context.Context, id int64, size int) ([]Hit, error) {
+	vector, err := c.documentEmbedding(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	body := BuildSimilarQuery(c.alias, id, size+1)
+	if len(vector) > 0 {
+		body = BuildSimilarVectorQuery(vector, id, size)
+	}
 	var res esResponse
-	if err := c.RawSearch(ctx, BuildSimilarQuery(c.alias, id, size+1), &res); err != nil {
+	if err := c.RawSearch(ctx, body, &res); err != nil {
 		return nil, err
 	}
 	hits := []Hit{}

@@ -5,6 +5,7 @@
 name: code-atlas
 
 x-go-env: &go-env
+  EMBEDDINGS_URL: http://ai-worker:8000
   DATABASE_URL: postgres://atlas:atlas@postgres:5432/atlas?sslmode=disable
   REDIS_URL: redis://redis:6379/0
   ELASTICSEARCH_URL: http://elasticsearch:9200
@@ -48,6 +49,15 @@ services:
       interval: 10s
       retries: 30
 
+  ai-worker:
+    # Embeddings for semantic / hybrid search (all-MiniLM-L6-v2 on CPU via ONNX).
+    build: { context: ./ai-worker }
+    ports: ["8000:8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      retries: 30
+
   api:
     build: { context: ., dockerfile: infrastructure/docker/go.Dockerfile }
     environment: *go-env
@@ -65,6 +75,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       elasticsearch: { condition: service_healthy }
+      ai-worker: { condition: service_healthy }
 
   web:
     build: { context: ./web }

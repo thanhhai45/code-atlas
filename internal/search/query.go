@@ -55,6 +55,38 @@ type Params struct {
 	// SearchAfter holds the sort values of the last hit of the previous page
 	// (decoded from a cursor). It replaces from+size for deep pagination.
 	SearchAfter []any
+	// Mode selects lexical (BM25), semantic (kNN) or hybrid (both) retrieval.
+	// Empty means DefaultMode.
+	Mode string
+	// QueryVector is the embedding of Query, required for semantic and hybrid
+	// modes. It is derived from Query, so it is left out of cache keys.
+	QueryVector []float32 `json:"-"`
+}
+
+// Retrieval modes.
+const (
+	ModeLexical  = "lexical"
+	ModeSemantic = "semantic"
+	ModeHybrid   = "hybrid"
+)
+
+// EffectiveMode is the mode a request actually runs with. Semantic retrieval
+// only applies to relevance-sorted text queries with a query vector: sorting
+// by stars or date would otherwise mix in nearest neighbours that match
+// nothing the user typed.
+func (p Params) EffectiveMode() string {
+	if p.Mode == ModeLexical || p.Query == "" || p.Sort != "relevance" || len(p.QueryVector) == 0 {
+		return ModeLexical
+	}
+	return p.Mode
+}
+
+// NeedsVector reports whether the request would use a query vector if one
+// were provided, so callers only embed queries when it matters.
+func (p Params) NeedsVector() bool {
+	q := p
+	q.QueryVector = []float32{0}
+	return q.EffectiveMode() != ModeLexical
 }
 
 // Normalize clamps paging values and fixes defaults.
@@ -84,6 +116,11 @@ func (p *Params) Normalize() {
 	case "", "30d", "90d", "1y":
 	default:
 		p.PushedWithin = ""
+	}
+	switch p.Mode {
+	case ModeLexical, ModeSemantic, ModeHybrid:
+	default:
+		p.Mode = DefaultMode
 	}
 }
 
@@ -234,6 +271,8 @@ type RankingOptions struct {
 	DisableBusinessSignals bool
 	// Signals overrides DefaultSignals when non-nil.
 	Signals *Signals
+	// Semantic overrides DefaultSemantic when non-nil.
+	Semantic *SemanticConfig
 }
 
 // buildQuery returns the "query" part of a search. extraFilters are added as
@@ -260,7 +299,71 @@ func buildQuery(p Params, opts RankingOptions, extraFilters []any) map[string]an
 		}
 		query = withBusinessSignals(query, signals)
 	}
-	return query
+
+	mode := p.EffectiveMode()
+	if mode == ModeLexical {
+		return query
+	}
+	semantic := DefaultHybrid
+	if mode == ModeSemantic {
+		semantic = DefaultSemanticOnly
+	}
+	if opts.Semantic != nil {
+		semantic = *opts.Semantic
+	}
+	knn := knnQuery(p.QueryVector, semantic, filters)
+	if mode == ModeSemantic {
+		return knn
+	}
+	// Hybrid: a document matches lexically, semantically or both, and its score
+	// is the sum of the two clauses (linear fusion). RRF would avoid tuning the
+	// weight, but it needs a paid Elasticsearch license (see experiment 04).
+	return map[string]any{"bool": map[string]any{
+		"should":               []any{query, knn},
+		"minimum_should_match": 1,
+	}}
+}
+
+// SemanticConfig controls the kNN clause of semantic and hybrid retrieval.
+type SemanticConfig struct {
+	// Boost scales the kNN score, which for cosine similarity is (1 + cos) / 2
+	// in [0, 1], against BM25 scores that are typically 4 to 40.
+	Boost float64
+	// NumCandidates is how many nearest neighbours each shard considers.
+	NumCandidates int
+	// MinSimilarity drops neighbours whose cosine similarity is below it, so
+	// hybrid search does not append unrelated repositories to every result list.
+	MinSimilarity float64
+}
+
+// The configuration /search uses, chosen with `rankeval -semantic-grid`
+// (docs/experiments/04-semantic-hybrid-search.md).
+var (
+	// Lexical stays the default: on the seed data hybrid raises recall@10
+	// (0.838 -> 0.865) but lowers NDCG@10 (0.983 -> 0.980).
+	DefaultMode = ModeLexical
+	// DefaultHybrid only lets in neighbours with cosine >= 0.5: lower
+	// thresholds add recall but pad short result lists with unrelated repos.
+	DefaultHybrid = SemanticConfig{Boost: 20, NumCandidates: 100, MinSimilarity: 0.5}
+	// DefaultSemanticOnly ranks purely by similarity, so it needs no threshold
+	// (0.5 would return nothing for many paraphrased queries).
+	DefaultSemanticOnly = SemanticConfig{Boost: 1, NumCandidates: 100}
+)
+
+func knnQuery(vector []float32, s SemanticConfig, filters []any) map[string]any {
+	knn := map[string]any{
+		"field":          "embedding",
+		"query_vector":   vector,
+		"num_candidates": s.NumCandidates,
+		"filter":         map[string]any{"bool": map[string]any{"filter": filters}},
+	}
+	if s.Boost > 0 {
+		knn["boost"] = s.Boost
+	}
+	if s.MinSimilarity > 0 {
+		knn["similarity"] = s.MinSimilarity
+	}
+	return map[string]any{"knn": knn}
 }
 
 // BuildRankEvalRequest returns the request used for one _rank_eval query. It
@@ -282,7 +385,7 @@ func BuildSearchQuery(p Params) map[string]any {
 		"from":             (p.Page - 1) * p.Size,
 		"size":             p.Size,
 		"track_total_hits": true,
-		"_source":          map[string]any{"excludes": []string{"readme"}},
+		"_source":          map[string]any{"excludes": []string{"readme", "embedding"}},
 		"sort":             sortClause(p),
 		"aggs":             buildAggs(facets),
 	}
@@ -392,12 +495,29 @@ func BuildSuggestQuery(prefix string, size int) map[string]any {
 	}
 }
 
-// BuildSimilarQuery finds repositories similar to id with more_like_this — a
-// lexical baseline to compare against vector similarity in Phase 9.
+// BuildSimilarVectorQuery finds the nearest neighbours of a repository's embedding.
+func BuildSimilarVectorQuery(vector []float32, id int64, size int) map[string]any {
+	return map[string]any{
+		"size":    size,
+		"_source": map[string]any{"excludes": []string{"readme", "embedding"}},
+		"query": map[string]any{"knn": map[string]any{
+			"field":          "embedding",
+			"query_vector":   vector,
+			"num_candidates": max(100, size*10),
+			"filter": map[string]any{"bool": map[string]any{
+				"filter":   []any{map[string]any{"term": map[string]any{"archived": false}}},
+				"must_not": []any{map[string]any{"ids": map[string]any{"values": []string{fmt.Sprint(id)}}}},
+			}},
+		}},
+	}
+}
+
+// BuildSimilarQuery finds repositories similar to id with more_like_this, the
+// lexical fallback for repositories that have no embedding.
 func BuildSimilarQuery(index string, id int64, size int) map[string]any {
 	return map[string]any{
 		"size":    size,
-		"_source": map[string]any{"excludes": []string{"readme"}},
+		"_source": map[string]any{"excludes": []string{"readme", "embedding"}},
 		"query": map[string]any{
 			"bool": map[string]any{
 				"must": []any{map[string]any{"more_like_this": map[string]any{

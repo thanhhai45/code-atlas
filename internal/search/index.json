@@ -118,7 +118,13 @@
       "pushed_at": { "type": "date" },
       "categories": { "type": "keyword" },
       "technologies": { "type": "keyword" },
-      "use_cases": { "type": "keyword" }
+      "use_cases": { "type": "keyword" },
+      "embedding": {
+        "type": "dense_vector",
+        "dims": 384,
+        "index": true,
+        "similarity": "cosine"
+      }
     }
   }
 }

@@ -209,3 +209,34 @@ func TestRankingOptionsOverrideSignals(t *testing.T) {
 		t.Errorf("live search must use DefaultSignals: %s", def)
 	}
 }
+
+func TestSemanticModes(t *testing.T) {
+	vector := []float32{0.1, 0.2, 0.3}
+	lexical := toJSON(t, BuildSearchQuery(Params{Query: "orm", Mode: ModeHybrid})["query"])
+	if strings.Contains(lexical, `"knn"`) {
+		t.Error("without a query vector the search must stay lexical")
+	}
+	hybrid := toJSON(t, BuildSearchQuery(Params{Query: "orm", Mode: ModeHybrid, QueryVector: vector})["query"])
+	for _, want := range []string{`"should":[`, `"function_score"`, `"knn":{`, `"boost":20`, `"similarity":0.5`, `"field":"embedding"`, `{"term":{"archived":false}}`} {
+		if !strings.Contains(hybrid, want) {
+			t.Errorf("hybrid query missing %s: %s", want, hybrid)
+		}
+	}
+	semantic := toJSON(t, BuildSearchQuery(Params{Query: "orm", Mode: ModeSemantic, QueryVector: vector})["query"])
+	if strings.Contains(semantic, "function_score") || strings.Contains(semantic, `"similarity"`) || !strings.HasPrefix(semantic, `{"knn":`) {
+		t.Errorf("semantic query should be a bare kNN without a threshold: %s", semantic)
+	}
+	byStars := toJSON(t, BuildSearchQuery(Params{Query: "orm", Mode: ModeHybrid, Sort: "stars", QueryVector: vector})["query"])
+	if strings.Contains(byStars, `"knn"`) {
+		t.Error("field sorts must not mix in nearest neighbours")
+	}
+}
+
+func TestRankEvalFoldsFacetsIntoKNNFilter(t *testing.T) {
+	p := Params{Query: "orm", Mode: ModeHybrid, QueryVector: []float32{1}, Languages: []string{"Go"}}
+	req := toJSON(t, BuildRankEvalRequest(p, RankingOptions{}))
+	knn := req[strings.Index(req, `"knn":`):]
+	if !strings.Contains(knn, `{"terms":{"language":["Go"]}}`) {
+		t.Errorf("facet filters must pre-filter kNN candidates: %s", knn)
+	}
+}

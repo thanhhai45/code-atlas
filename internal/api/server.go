@@ -35,6 +35,13 @@ type Searcher interface {
 	Similar(ctx context.Context, id int64, size int) ([]search.Hit, error)
 }
 
+// Embedder turns search queries into vectors for semantic and hybrid search.
+// It is optional; without it every search runs in lexical mode.
+type Embedder interface {
+	Embed(ctx context.Context, texts []string) ([][]float32, error)
+	Ping(ctx context.Context) error
+}
+
 // Cache is optional; a nil Cache disables caching.
 type Cache interface {
 	Ping(ctx context.Context) error
@@ -43,9 +50,10 @@ type Cache interface {
 }
 
 type Server struct {
-	Repos  Repositories
-	Search Searcher
-	Cache  Cache
+	Repos    Repositories
+	Search   Searcher
+	Cache    Cache
+	Embedder Embedder
 }
 
 func (s *Server) Router() *gin.Engine {
@@ -88,6 +96,14 @@ func (s *Server) health(c *gin.Context) {
 			checks["redis"] = "degraded: " + err.Error()
 		} else {
 			checks["redis"] = "up"
+		}
+	}
+	if s.Embedder != nil {
+		// Like Redis, the embedder only enhances search: degraded, not down.
+		if err := s.Embedder.Ping(ctx); err != nil {
+			checks["embeddings"] = "degraded: " + err.Error()
+		} else {
+			checks["embeddings"] = "up"
 		}
 	}
 	code, status := http.StatusOK, "ok"
@@ -156,6 +172,7 @@ func ParseSearchParams(c *gin.Context) (search.Params, error) {
 		IncludeArchived: c.Query("include_archived") == "true",
 		IncludeForks:    c.Query("include_forks") == "true",
 		Sort:            c.Query("sort"),
+		Mode:            c.Query("mode"),
 		Page:            queryInt(c, "page", 1, 1, search.MaxResultWindow),
 		Size:            queryInt(c, "size", search.DefaultPageSize, 1, search.MaxPageSize),
 	}
@@ -195,13 +212,25 @@ func (s *Server) search(c *gin.Context) {
 	}
 	metrics.CacheResults.WithLabelValues("miss").Inc()
 
+	degraded := false
+	if p.NeedsVector() {
+		if vector, err := s.embedQuery(ctx, p.Query); err != nil {
+			// Semantic retrieval is an enhancement: fall back to lexical search
+			// rather than failing the request.
+			slog.Warn("query embedding failed; serving lexical results", "err", err)
+			degraded = true
+		} else {
+			p.QueryVector = vector
+		}
+	}
+
 	res, err = s.Search.Search(ctx, p)
 	if err != nil {
 		internalError(c, err)
 		return
 	}
 	metrics.SearchTook.WithLabelValues("search").Observe(float64(res.TookMS) / 1000)
-	if s.Cache != nil {
+	if s.Cache != nil && !degraded {
 		s.Cache.Set(ctx, key, res)
 	}
 	c.Header("X-Cache", "MISS")
@@ -223,6 +252,19 @@ func (s *Server) suggest(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"items": hits})
+}
+
+func (s *Server) embedQuery(ctx context.Context, q string) ([]float32, error) {
+	if s.Embedder == nil {
+		return nil, errors.New("no embedder configured")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	vectors, err := s.Embedder.Embed(ctx, []string{q})
+	if err != nil {
+		return nil, err
+	}
+	return vectors[0], nil
 }
 
 func multi(c *gin.Context, key string) []string {

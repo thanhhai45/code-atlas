@@ -13,7 +13,15 @@
       },
       "ratings": {
         "milvus-io/milvus": 3,
-        "weaviate/weaviate": 3
+        "weaviate/weaviate": 3,
+        "blevesearch/bleve": 1,
+        "cockroachdb/cockroach": 0,
+        "go-gorm/gorm": 0,
+        "junegunn/fzf": 0,
+        "ollama/ollama": 0,
+        "prometheus/prometheus": 0,
+        "sourcegraph/zoekt": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -29,7 +37,10 @@
         "chroma-core/chroma": 3,
         "pgvector/pgvector": 2,
         "facebookresearch/faiss": 2,
-        "redis/redis": 1
+        "redis/redis": 1,
+        "blevesearch/bleve": 1,
+        "cockroachdb/cockroach": 0,
+        "grafana/grafana": 0
       }
     },
     {
@@ -45,7 +56,8 @@
         ]
       },
       "ratings": {
-        "ankane/searchkick": 3
+        "ankane/searchkick": 3,
+        "github/linguist": 0
       }
     },
     {
@@ -60,7 +72,13 @@
         "langchain-ai/langchain": 3,
         "deepset-ai/haystack": 3,
         "infiniflow/ragflow": 2,
-        "chroma-core/chroma": 1
+        "chroma-core/chroma": 1,
+        "gin-gonic/gin": 0,
+        "gofiber/fiber": 0,
+        "grafana/grafana": 0,
+        "labstack/echo": 0,
+        "tailwindlabs/tailwindcss": 0,
+        "tiangolo/fastapi": 0
       }
     },
     {
@@ -73,7 +91,15 @@
       "ratings": {
         "ThreeDotsLabs/watermill": 3,
         "apache/kafka": 3,
-        "nats-io/nats-server": 3
+        "nats-io/nats-server": 3,
+        "grafana/grafana": 0,
+        "huggingface/transformers": 0,
+        "langchain-ai/langchain": 0,
+        "spf13/cobra": 0,
+        "tailwindlabs/tailwindcss": 0,
+        "tiangolo/fastapi": 0,
+        "UKPLab/sentence-transformers": 0,
+        "vercel/next.js": 0
       }
     },
     {
@@ -89,7 +115,10 @@
         "opensearch-project/OpenSearch": 2,
         "ankane/searchkick": 1,
         "zincsearch/zincsearch": 1,
-        "typesense/typesense": 1
+        "typesense/typesense": 1,
+        "meilisearch/meilisearch": 1,
+        "blevesearch/bleve": 0,
+        "milvus-io/milvus": 0
       }
     },
     {
@@ -105,7 +134,12 @@
         "opensearch-project/OpenSearch": 1,
         "ankane/searchkick": 1,
         "zincsearch/zincsearch": 1,
-        "typesense/typesense": 1
+        "typesense/typesense": 1,
+        "meilisearch/meilisearch": 1,
+        "quickwit-oss/tantivy": 1,
+        "github/linguist": 0,
+        "ollama/ollama": 0,
+        "weaviate/weaviate": 0
       }
     },
     {
@@ -120,7 +154,12 @@
         "meilisearch/meilisearch": 3,
         "opensearch-project/OpenSearch": 3,
         "quickwit-oss/tantivy": 1,
-        "blevesearch/bleve": 1
+        "blevesearch/bleve": 1,
+        "ankane/searchkick": 0,
+        "elastic/elasticsearch": 0,
+        "elastic/elasticsearch-ruby": 0,
+        "elastic/go-elasticsearch": 0,
+        "milvus-io/milvus": 0
       }
     },
     {
@@ -135,7 +174,9 @@
       "ratings": {
         "meilisearch/meilisearch": 3,
         "quickwit-oss/tantivy": 3,
-        "qdrant/qdrant": 1
+        "qdrant/qdrant": 1,
+        "BurntSushi/ripgrep": 1,
+        "chroma-core/chroma": 1
       }
     },
     {
@@ -149,7 +190,12 @@
         "blevesearch/bleve": 3,
         "meilisearch/meilisearch": 1,
         "typesense/typesense": 1,
-        "elastic/elasticsearch": 1
+        "elastic/elasticsearch": 1,
+        "ankane/searchkick": 1,
+        "opensearch-project/OpenSearch": 1,
+        "zincsearch/zincsearch": 1,
+        "junegunn/fzf": 0,
+        "UKPLab/sentence-transformers": 0
       }
     },
     {
@@ -164,7 +210,14 @@
       "ratings": {
         "gin-gonic/gin": 3,
         "labstack/echo": 3,
-        "gofiber/fiber": 3
+        "gofiber/fiber": 3,
+        "cockroachdb/cockroach": 0,
+        "go-gorm/gorm": 0,
+        "junegunn/fzf": 0,
+        "ollama/ollama": 0,
+        "ThreeDotsLabs/watermill": 0,
+        "weaviate/weaviate": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -178,7 +231,12 @@
         "run-llama/llama_index": 0,
         "huggingface/transformers": 0,
         "deepset-ai/haystack": 0,
-        "langchain-ai/langchain": 0
+        "langchain-ai/langchain": 0,
+        "gofiber/fiber": 1,
+        "labstack/echo": 1,
+        "ecosyste-ms/packages": 0,
+        "go-gorm/gorm": 0,
+        "grafana/loki": 0
       }
     },
     {
@@ -191,7 +249,14 @@
         "nats-io/nats-server": 3,
         "apache/kafka": 3,
         "ThreeDotsLabs/watermill": 2,
-        "redis/redis": 1
+        "redis/redis": 1,
+        "cockroachdb/cockroach": 0,
+        "langchain-ai/langchain": 0,
+        "ollama/ollama": 0,
+        "open-telemetry/opentelemetry-go": 0,
+        "run-llama/llama_index": 0,
+        "tiangolo/fastapi": 0,
+        "UKPLab/sentence-transformers": 0
       }
     },
     {
@@ -204,7 +269,16 @@
         ]
       },
       "ratings": {
-        "go-gorm/gorm": 3
+        "go-gorm/gorm": 3,
+        "gin-gonic/gin": 0,
+        "grafana/loki": 0,
+        "labstack/echo": 0,
+        "milvus-io/milvus": 0,
+        "nats-io/nats-server": 0,
+        "ollama/ollama": 0,
+        "spf13/cobra": 0,
+        "ThreeDotsLabs/watermill": 0,
+        "weaviate/weaviate": 0
       }
     },
     {
@@ -214,7 +288,16 @@
         "q": "k8s"
       },
       "ratings": {
-        "kubernetes/kubernetes": 3
+        "kubernetes/kubernetes": 3,
+        "apache/kafka": 0,
+        "elastic/elasticsearch": 0,
+        "milvus-io/milvus": 0,
+        "nats-io/nats-server": 0,
+        "prometheus/prometheus": 0,
+        "qdrant/qdrant": 0,
+        "tailwindlabs/tailwindcss": 0,
+        "vercel/next.js": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -227,7 +310,13 @@
         "prometheus/prometheus": 3,
         "grafana/grafana": 3,
         "grafana/loki": 2,
-        "open-telemetry/opentelemetry-go": 2
+        "open-telemetry/opentelemetry-go": 2,
+        "apache/kafka": 0,
+        "cockroachdb/cockroach": 0,
+        "nats-io/nats-server": 0,
+        "redis/redis": 0,
+        "spf13/cobra": 0,
+        "ThreeDotsLabs/watermill": 0
       }
     },
     {
@@ -239,7 +328,14 @@
       "ratings": {
         "grafana/loki": 3,
         "zincsearch/zincsearch": 2,
-        "grafana/grafana": 1
+        "grafana/grafana": 1,
+        "apache/kafka": 1,
+        "open-telemetry/opentelemetry-go": 1,
+        "prometheus/prometheus": 1,
+        "deepset-ai/haystack": 0,
+        "elastic/elasticsearch-ruby": 0,
+        "gin-gonic/gin": 0,
+        "UKPLab/sentence-transformers": 0
       }
     },
     {
@@ -251,7 +347,15 @@
       "ratings": {
         "ollama/ollama": 3,
         "ggml-org/llama.cpp": 3,
-        "huggingface/transformers": 1
+        "huggingface/transformers": 1,
+        "chroma-core/chroma": 0,
+        "deepset-ai/haystack": 0,
+        "go-gorm/gorm": 0,
+        "langchain-ai/langchain": 0,
+        "milvus-io/milvus": 0,
+        "open-telemetry/opentelemetry-go": 0,
+        "run-llama/llama_index": 0,
+        "spf13/cobra": 0
       }
     },
     {
@@ -265,7 +369,12 @@
         "chroma-core/chroma": 2,
         "milvus-io/milvus": 1,
         "qdrant/qdrant": 1,
-        "pgvector/pgvector": 1
+        "pgvector/pgvector": 1,
+        "facebookresearch/faiss": 1,
+        "huggingface/transformers": 2,
+        "ollama/ollama": 1,
+        "infiniflow/ragflow": 0,
+        "typesense/typesense": 0
       }
     },
     {
@@ -279,7 +388,13 @@
         "pgvector/pgvector": 3,
         "milvus-io/milvus": 3,
         "qdrant/qdrant": 2,
-        "weaviate/weaviate": 2
+        "weaviate/weaviate": 2,
+        "blevesearch/bleve": 1,
+        "ankane/searchkick": 0,
+        "junegunn/fzf": 0,
+        "meilisearch/meilisearch": 0,
+        "opensearch-project/OpenSearch": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -291,7 +406,14 @@
       "ratings": {
         "postgres/postgres": 3,
         "pgvector/pgvector": 2,
-        "cockroachdb/cockroach": 1
+        "cockroachdb/cockroach": 1,
+        "ankane/searchkick": 0,
+        "ecosyste-ms/packages": 0,
+        "elastic/elasticsearch-ruby": 0,
+        "grafana/grafana": 0,
+        "opensearch-project/OpenSearch": 0,
+        "redis/redis": 0,
+        "typesense/typesense": 0
       }
     },
     {
@@ -305,7 +427,15 @@
       },
       "ratings": {
         "spf13/cobra": 3,
-        "junegunn/fzf": 2
+        "junegunn/fzf": 2,
+        "go-gorm/gorm": 0,
+        "grafana/loki": 0,
+        "kubernetes/kubernetes": 0,
+        "labstack/echo": 0,
+        "milvus-io/milvus": 0,
+        "ollama/ollama": 0,
+        "sourcegraph/zoekt": 0,
+        "ThreeDotsLabs/watermill": 0
       }
     },
     {
@@ -315,7 +445,16 @@
         "q": "fuzzy finder"
       },
       "ratings": {
-        "junegunn/fzf": 3
+        "junegunn/fzf": 3,
+        "ankane/searchkick": 0,
+        "blevesearch/bleve": 0,
+        "facebookresearch/faiss": 0,
+        "meilisearch/meilisearch": 0,
+        "milvus-io/milvus": 0,
+        "opensearch-project/OpenSearch": 0,
+        "qdrant/qdrant": 0,
+        "quickwit-oss/tantivy": 0,
+        "sourcegraph/zoekt": 0
       }
     },
     {
@@ -326,7 +465,16 @@
       },
       "ratings": {
         "sourcegraph/zoekt": 3,
-        "BurntSushi/ripgrep": 2
+        "BurntSushi/ripgrep": 2,
+        "junegunn/fzf": 1,
+        "ankane/searchkick": 0,
+        "blevesearch/bleve": 0,
+        "github/linguist": 0,
+        "meilisearch/meilisearch": 0,
+        "opensearch-project/OpenSearch": 0,
+        "quickwit-oss/tantivy": 0,
+        "typesense/typesense": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -336,7 +484,16 @@
         "q": "css framework"
       },
       "ratings": {
-        "tailwindlabs/tailwindcss": 3
+        "tailwindlabs/tailwindcss": 3,
+        "gofiber/fiber": 0,
+        "grafana/grafana": 0,
+        "junegunn/fzf": 0,
+        "labstack/echo": 0,
+        "quickwit-oss/tantivy": 0,
+        "redis/redis": 0,
+        "ThreeDotsLabs/watermill": 0,
+        "tiangolo/fastapi": 0,
+        "vercel/next.js": 0
       }
     },
     {
@@ -346,7 +503,16 @@
         "q": "react framework"
       },
       "ratings": {
-        "vercel/next.js": 3
+        "vercel/next.js": 3,
+        "tailwindlabs/tailwindcss": 1,
+        "gin-gonic/gin": 0,
+        "gofiber/fiber": 0,
+        "grafana/grafana": 0,
+        "labstack/echo": 0,
+        "langchain-ai/langchain": 0,
+        "ThreeDotsLabs/watermill": 0,
+        "tiangolo/fastapi": 0,
+        "weaviate/weaviate": 0
       }
     },
     {
@@ -356,7 +522,16 @@
         "q": "infrastructure as code"
       },
       "ratings": {
-        "hashicorp/terraform": 3
+        "hashicorp/terraform": 3,
+        "deepset-ai/haystack": 0,
+        "ecosyste-ms/packages": 0,
+        "gofiber/fiber": 0,
+        "grafana/grafana": 0,
+        "langchain-ai/langchain": 0,
+        "nats-io/nats-server": 0,
+        "sourcegraph/zoekt": 0,
+        "ThreeDotsLabs/watermill": 0,
+        "tiangolo/fastapi": 0
       }
     },
     {
@@ -367,7 +542,15 @@
       },
       "ratings": {
         "cockroachdb/cockroach": 3,
-        "postgres/postgres": 1
+        "postgres/postgres": 1,
+        "apache/kafka": 0,
+        "chroma-core/chroma": 0,
+        "elastic/elasticsearch": 0,
+        "grafana/grafana": 0,
+        "milvus-io/milvus": 0,
+        "nats-io/nats-server": 0,
+        "opensearch-project/OpenSearch": 0,
+        "redis/redis": 0
       }
     },
     {
@@ -379,7 +562,14 @@
       "ratings": {
         "huggingface/transformers": 3,
         "UKPLab/sentence-transformers": 2,
-        "facebookresearch/faiss": 1
+        "facebookresearch/faiss": 1,
+        "deepset-ai/haystack": 1,
+        "chroma-core/chroma": 0,
+        "infiniflow/ragflow": 0,
+        "milvus-io/milvus": 0,
+        "opensearch-project/OpenSearch": 0,
+        "qdrant/qdrant": 0,
+        "weaviate/weaviate": 0
       }
     },
     {
@@ -389,7 +579,16 @@
         "q": "package dependency metadata"
       },
       "ratings": {
-        "ecosyste-ms/packages": 3
+        "ecosyste-ms/packages": 3,
+        "apache/kafka": 0,
+        "github/linguist": 0,
+        "go-gorm/gorm": 0,
+        "infiniflow/ragflow": 0,
+        "junegunn/fzf": 0,
+        "langchain-ai/langchain": 0,
+        "opensearch-project/OpenSearch": 0,
+        "postgres/postgres": 0,
+        "quickwit-oss/tantivy": 0
       }
     },
     {
@@ -407,7 +606,10 @@
         "quickwit-oss/tantivy": 2,
         "sourcegraph/zoekt": 2,
         "blevesearch/bleve": 1,
-        "qdrant/qdrant": 1
+        "qdrant/qdrant": 1,
+        "ankane/searchkick": 1,
+        "elastic/go-elasticsearch": 1,
+        "weaviate/weaviate": 1
       }
     },
     {
@@ -419,7 +621,14 @@
       "ratings": {
         "elastic/go-elasticsearch": 3,
         "elastic/elasticsearch-ruby": 1,
-        "elastic/elasticsearch": 1
+        "elastic/elasticsearch": 1,
+        "ankane/searchkick": 1,
+        "blevesearch/bleve": 0,
+        "go-gorm/gorm": 0,
+        "gofiber/fiber": 0,
+        "opensearch-project/OpenSearch": 0,
+        "typesense/typesense": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -433,7 +642,13 @@
         "postgres/postgres": 1,
         "milvus-io/milvus": 1,
         "qdrant/qdrant": 1,
-        "weaviate/weaviate": 1
+        "weaviate/weaviate": 1,
+        "blevesearch/bleve": 1,
+        "facebookresearch/faiss": 1,
+        "ankane/searchkick": 0,
+        "opensearch-project/OpenSearch": 0,
+        "typesense/typesense": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -445,7 +660,14 @@
       "ratings": {
         "ggml-org/llama.cpp": 3,
         "ollama/ollama": 2,
-        "huggingface/transformers": 2
+        "huggingface/transformers": 2,
+        "deepset-ai/haystack": 1,
+        "langchain-ai/langchain": 1,
+        "run-llama/llama_index": 1,
+        "infiniflow/ragflow": 1,
+        "UKPLab/sentence-transformers": 1,
+        "chroma-core/chroma": 0,
+        "spf13/cobra": 0
       }
     },
     {
@@ -456,7 +678,16 @@
       },
       "ratings": {
         "sourcegraph/zoekt": 3,
-        "BurntSushi/ripgrep": 1
+        "BurntSushi/ripgrep": 1,
+        "blevesearch/bleve": 0,
+        "facebookresearch/faiss": 0,
+        "junegunn/fzf": 0,
+        "meilisearch/meilisearch": 0,
+        "milvus-io/milvus": 0,
+        "pgvector/pgvector": 0,
+        "quickwit-oss/tantivy": 0,
+        "typesense/typesense": 0,
+        "zincsearch/zincsearch": 0
       }
     },
     {
@@ -466,7 +697,16 @@
         "q": "kubernetes"
       },
       "ratings": {
-        "kubernetes/kubernetes": 3
+        "kubernetes/kubernetes": 3,
+        "apache/kafka": 0,
+        "cockroachdb/cockroach": 0,
+        "deepset-ai/haystack": 0,
+        "elastic/elasticsearch": 0,
+        "hashicorp/terraform": 0,
+        "milvus-io/milvus": 0,
+        "nats-io/nats-server": 0,
+        "prometheus/prometheus": 0,
+        "qdrant/qdrant": 0
       }
     },
     {
@@ -476,7 +716,16 @@
         "q": "redis"
       },
       "ratings": {
-        "redis/redis": 3
+        "redis/redis": 3,
+        "ecosyste-ms/packages": 0,
+        "grafana/grafana": 0,
+        "grafana/loki": 0,
+        "junegunn/fzf": 0,
+        "labstack/echo": 0,
+        "nats-io/nats-server": 0,
+        "prometheus/prometheus": 0,
+        "spf13/cobra": 0,
+        "ThreeDotsLabs/watermill": 0
       }
     },
     {
@@ -487,7 +736,15 @@
       },
       "ratings": {
         "grafana/grafana": 3,
-        "grafana/loki": 2
+        "grafana/loki": 2,
+        "prometheus/prometheus": 1,
+        "chroma-core/chroma": 0,
+        "gin-gonic/gin": 0,
+        "meilisearch/meilisearch": 0,
+        "ollama/ollama": 0,
+        "qdrant/qdrant": 0,
+        "sourcegraph/zoekt": 0,
+        "weaviate/weaviate": 0
       }
     },
     {
@@ -499,7 +756,14 @@
       "ratings": {
         "gin-gonic/gin": 3,
         "labstack/echo": 2,
-        "gofiber/fiber": 2
+        "gofiber/fiber": 2,
+        "tiangolo/fastapi": 2,
+        "elastic/elasticsearch": 0,
+        "elastic/go-elasticsearch": 0,
+        "go-gorm/gorm": 0,
+        "nats-io/nats-server": 0,
+        "open-telemetry/opentelemetry-go": 0,
+        "opensearch-project/OpenSearch": 0
       }
     },
     {
@@ -518,7 +782,10 @@
         "chroma-core/chroma": 2,
         "pgvector/pgvector": 1,
         "go-gorm/gorm": 1,
-        "prometheus/prometheus": 1
+        "prometheus/prometheus": 1,
+        "meilisearch/meilisearch": 1,
+        "opensearch-project/OpenSearch": 1,
+        "grafana/grafana": 0
       }
     }
   ]

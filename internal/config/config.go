@@ -19,6 +19,9 @@ type Config struct {
 	SearchCacheTTL time.Duration
 	GitHubToken    string
 	GitHubAPIURL   string
+	// EmbeddingsURL is the ai-worker base URL. Empty disables embeddings and
+	// semantic / hybrid search (the API then serves lexical search only).
+	EmbeddingsURL string
 }
 
 func Load() Config {
@@ -31,6 +34,7 @@ func Load() Config {
 		SearchCacheTTL:   time.Duration(envInt("SEARCH_CACHE_TTL_SECONDS", 60)) * time.Second,
 		GitHubToken:      os.Getenv("GITHUB_TOKEN"),
 		GitHubAPIURL:     env("GITHUB_API_URL", "https://api.github.com"),
+		EmbeddingsURL:    os.Getenv("EMBEDDINGS_URL"),
 	}
 }
 

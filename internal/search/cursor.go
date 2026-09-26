@@ -77,5 +77,15 @@ func sortName(p Params) string {
 	if p.Sort == "relevance" && p.Query == "" {
 		return "stars"
 	}
+	if p.Sort == "relevance" {
+		// Scores differ between retrieval modes, so their cursors do too. Use the
+		// requested mode, not EffectiveMode: cursors are decoded before the query
+		// is embedded and encoded after.
+		mode := ModeLexical
+		if p.NeedsVector() {
+			mode = p.Mode
+		}
+		return "relevance:" + mode
+	}
 	return p.Sort
 }

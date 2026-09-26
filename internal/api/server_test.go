@@ -127,7 +127,7 @@ func TestSearchCursor(t *testing.T) {
 		t.Fatal("an invalid cursor must not reach Elasticsearch")
 	}
 
-	cur, err := search.EncodeCursor("relevance", []any{json.Number("2.5"), json.Number("40"), json.Number("9")})
+	cur, err := search.EncodeCursor("relevance:"+search.DefaultMode, []any{json.Number("2.5"), json.Number("40"), json.Number("9")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,5 +140,56 @@ func TestSearchCursor(t *testing.T) {
 	// A cursor issued for relevance order is rejected for stars order.
 	if w := do(t, r, "/search?q=orm&sort=stars&cursor="+cur); w.Code != http.StatusBadRequest {
 		t.Errorf("mismatched sort: got %d", w.Code)
+	}
+}
+
+type fakeEmbedder struct {
+	err   error
+	calls int
+}
+
+func (f *fakeEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	f.calls++
+	if f.err != nil {
+		return nil, f.err
+	}
+	return [][]float32{{0.1, 0.2}}, nil
+}
+func (f *fakeEmbedder) Ping(context.Context) error { return f.err }
+
+func TestSearchModes(t *testing.T) {
+	fs, emb := &fakeSearch{}, &fakeEmbedder{}
+	cache := &memCache{m: map[string][]byte{}}
+	r := (&Server{Repos: fakeRepos{}, Search: fs, Cache: cache, Embedder: emb}).Router()
+
+	do(t, r, "/search?q=orm&mode=hybrid")
+	if emb.calls != 1 || len(fs.last.QueryVector) != 2 || fs.last.Mode != search.ModeHybrid {
+		t.Fatalf("hybrid request not embedded: calls=%d params=%+v", emb.calls, fs.last)
+	}
+	do(t, r, "/search?q=orm&mode=lexical")
+	do(t, r, "/search?q=orm&mode=hybrid&sort=stars")
+	do(t, r, "/search?mode=hybrid")
+	if emb.calls != 1 {
+		t.Errorf("lexical, field-sorted and empty queries must not be embedded (calls=%d)", emb.calls)
+	}
+}
+
+func TestSearchFallsBackToLexicalWhenEmbeddingFails(t *testing.T) {
+	fs, emb := &fakeSearch{}, &fakeEmbedder{err: errors.New("worker down")}
+	cache := &memCache{m: map[string][]byte{}}
+	s := &Server{Repos: fakeRepos{}, Search: fs, Cache: cache, Embedder: emb}
+	r := s.Router()
+
+	if w := do(t, r, "/search?q=orm&mode=semantic"); w.Code != http.StatusOK {
+		t.Fatalf("embedding failure must not fail the search: %d", w.Code)
+	}
+	if fs.last.QueryVector != nil {
+		t.Error("no vector expected after a failed embedding")
+	}
+	if len(cache.m) != 0 {
+		t.Error("degraded results must not be cached under the semantic key")
+	}
+	if w := do(t, r, "/health"); w.Code != http.StatusOK {
+		t.Errorf("a down embedder degrades health, it does not fail it: %d", w.Code)
 	}
 }
