@@ -172,7 +172,13 @@ func (c *Client) WaitForGreen(ctx context.Context, index string) error {
 			TimedOut bool   `json:"timed_out"`
 		}
 		path := "/_cluster/health/" + url.PathEscape(index) + "?wait_for_status=green&timeout=20s"
-		if err := c.do(ctx, http.MethodGet, path, nil, "", &h); err != nil {
+		err := c.do(ctx, http.MethodGet, path, nil, "", &h)
+		// Not green within the timeout: Elasticsearch answers 408. Keep waiting.
+		var esErr *ESError
+		if errors.As(err, &esErr) && esErr.Status == http.StatusRequestTimeout {
+			err = nil
+		}
+		if err != nil {
 			return err
 		}
 		if h.Status == "green" {
