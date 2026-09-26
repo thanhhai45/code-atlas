@@ -9,13 +9,20 @@
 # ES_CPUS / ES_HEAP / ES_MEM cap each node, so that on one host the three nodes
 # behave like three smaller machines instead of sharing every core.
 #
+# A multi-node cluster enforces Elasticsearch's bootstrap checks. The host
+# needs `sysctl -w vm.max_map_count=262144`, and Docker must allow 65535 open
+# files. Where it cannot (sandboxes, some CI runners), add the loopback override:
+#
+#   docker compose -f infrastructure/cluster/docker-compose.yml \
+#                  -f infrastructure/cluster/docker-compose.loopback.yml up -d
+#
 # Local experiments only: security is off and the disk watermarks are disabled.
 x-node: &node
   image: elasticsearch:8.15.3
   cpus: ${ES_CPUS:-1}
   mem_limit: ${ES_MEM:-3g}
   ulimits:
-    memlock: { soft: -1, hard: -1 }
+    nofile: { soft: 65535, hard: 65535 }
   healthcheck:
     test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
     interval: 10s

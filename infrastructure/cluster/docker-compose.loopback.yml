@@ -1,0 +1,30 @@
+# Override for hosts that cannot meet the bootstrap checks (open files capped
+# below 65535). Elasticsearch runs the checks only when a node binds a
+# non-loopback address, so here the three nodes share the host network and
+# bind 127.0.0.1 on separate ports: HTTP 9200/9201/9202, transport 9300/9301/9302.
+# Discovery, replication and recovery work exactly as on separate machines;
+# only the network between nodes is faster than a real one.
+x-env: &env
+  network.host: 127.0.0.1
+  discovery.seed_hosts: 127.0.0.1:9300,127.0.0.1:9301,127.0.0.1:9302
+
+services:
+  es01:
+    network_mode: host
+    ports: !reset []
+    ulimits: !reset {}
+    environment: { <<: *env, http.port: 9200, transport.port: 9300 }
+  es02:
+    network_mode: host
+    ports: !reset []
+    ulimits: !reset {}
+    environment: { <<: *env, http.port: 9201, transport.port: 9301 }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9201/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+  es03:
+    network_mode: host
+    ports: !reset []
+    ulimits: !reset {}
+    environment: { <<: *env, http.port: 9202, transport.port: 9302 }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9202/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
