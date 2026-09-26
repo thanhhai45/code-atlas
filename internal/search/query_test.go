@@ -240,3 +240,14 @@ func TestRankEvalFoldsFacetsIntoKNNFilter(t *testing.T) {
 		t.Errorf("facet filters must pre-filter kNN candidates: %s", knn)
 	}
 }
+
+func TestHighlightQueryIsNotFuzzy(t *testing.T) {
+	body := BuildSearchQuery(Params{Query: "vector database"})
+	hl := toJSON(t, body["highlight"])
+	if !strings.Contains(hl, `"highlight_query":{"multi_match":{"fields":["description","readme"],"query":"vector database"}}`) {
+		t.Errorf("highlight must use a dedicated query: %s", hl)
+	}
+	if strings.Contains(hl, "fuzziness") {
+		t.Error("the highlight query must not be fuzzy: expanding fuzzy terms per hit dominates /search latency")
+	}
+}

@@ -102,9 +102,10 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 6 | Autocomplete (search_as_you_type), fuzzy, synonyms, highlight; from/size trong giới hạn 10K + `search_after` với cursor cho phân trang sâu (integration test trên ES thật trong CI) | ✅ |
 | 7 | Facets multi-select đúng chuẩn (post_filter + filter agg), stars range, activity date_range | ✅ |
 | 9 | Embeddings (ai-worker: FastAPI + all-MiniLM-L6-v2/ONNX), kNN semantic + hybrid (BM25 + kNN, linear fusion) search, similar repos bằng kNN; đo bằng `rankeval -semantic-grid` sau khi chấm pool — lexical vẫn tốt nhất trên dữ liệu mẫu nên để mặc định (xem `docs/experiments/04`) | ✅ (opt-in) |
+| 10 | `cmd/datagen` (dữ liệu tổng hợp: Pareto stars, Zipf topics, vector theo cụm) + `cmd/bench` (16 workload, P50/P95/P99, QPS, error rate); baseline 100K và 1M docs; tìm và sửa highlight làm chậm `/search` 3× — xem `docs/experiments/05` | ✅ |
 | 13 | Versioned index + alias swap reindex | ✅ (sớm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
 business signals và semantic/hybrid trên dữ liệu thật (chấm pool trước khi đọc số), (3) viết kết quả cho
-`docs/experiments/01-fundamentals.md`, (4) Phase 10: benchmark tool (P50/P95/P99, QPS) và scale lên 100K+ documents.
+`docs/experiments/01-fundamentals.md`, (4) Phase 11: so sánh 1/3/5 shard và replica bằng `cmd/bench` trên 1M docs.

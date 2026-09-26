@@ -1,0 +1,76 @@
+{
+  "target": "es",
+  "alias": "repositories_bench",
+  "index": {
+    "docs": 100000,
+    "store_bytes": 634428415,
+    "segments": 6
+  },
+  "duration": "20s",
+  "warmup": "3s",
+  "seed": 1,
+  "client_cpus": 4,
+  "started_at": "2026-09-26T10:42:13.070348263Z",
+  "results": [
+    {
+      "workload": "full_search",
+      "concurrency": 8,
+      "requests": 1576,
+      "errors": 0,
+      "error_rate": 0,
+      "qps": 78.33593193087552,
+      "p50_ms": 74.839,
+      "p95_ms": 251.531,
+      "p99_ms": 331.604,
+      "max_ms": 419.219,
+      "mean_ms": 101.508,
+      "mean_took_ms": 96.08058375634518,
+      "mean_hits": 200.03362944162436
+    },
+    {
+      "workload": "fs_no_aggs",
+      "concurrency": 8,
+      "requests": 1689,
+      "errors": 0,
+      "error_rate": 0,
+      "qps": 84.04560928546556,
+      "p50_ms": 68.798,
+      "p95_ms": 241.958,
+      "p99_ms": 321.722,
+      "max_ms": 412.293,
+      "mean_ms": 94.678,
+      "mean_took_ms": 89.91947898164594,
+      "mean_hits": 197.47661338069864
+    },
+    {
+      "workload": "fs_no_highlight",
+      "concurrency": 8,
+      "requests": 5686,
+      "errors": 0,
+      "error_rate": 0,
+      "qps": 284.0309323851947,
+      "p50_ms": 26.319,
+      "p95_ms": 48.247,
+      "p99_ms": 61.275,
+      "max_ms": 89.346,
+      "mean_ms": 27.82,
+      "mean_took_ms": 23.74938445304256,
+      "mean_hits": 183.1056982061203
+    },
+    {
+      "workload": "fs_track_10k",
+      "concurrency": 8,
+      "requests": 1568,
+      "errors": 0,
+      "error_rate": 0,
+      "qps": 78.07579829718574,
+      "p50_ms": 73.977,
+      "p95_ms": 252.3,
+      "p99_ms": 338.802,
+      "max_ms": 453.668,
+      "mean_ms": 101.906,
+      "mean_took_ms": 96.62372448979592,
+      "mean_hits": 199.9547193877551
+    }
+  ]
+}

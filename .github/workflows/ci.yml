@@ -111,3 +111,7 @@ jobs:
         run: go test -count=1 -tags integration ./internal/search/
         env:
           EMBEDDINGS_URL: http://localhost:8000
+      - name: Benchmark smoke test (every workload runs without errors)
+        run: |
+          go run ./cmd/datagen -n 3000 -alias bench_ci
+          go run ./cmd/bench -alias bench_ci -c 2 -d 2s -warmup 0 -max-error-rate 0
