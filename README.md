@@ -175,6 +175,11 @@ to compare). A multi-node cluster enforces Elasticsearch's bootstrap checks; on 
 open-files limit, the default `make cluster-up` uses a loopback override (see the compose files). Results:
 [`docs/experiments/07-cluster.md`](docs/experiments/07-cluster.md).
 
+The API, crawler and tools accept several nodes in `ELASTICSEARCH_URL`, comma-separated
+(`http://localhost:9200,http://localhost:9201,http://localhost:9202`). Requests go round-robin over them; a node
+that cannot be reached is skipped for 30 s and the request goes to the next node. Reads are also resent after a
+connection lost mid-request; writes only when they never reached the node, so they are never applied twice.
+
 ## Repository layout
 
 ```text
