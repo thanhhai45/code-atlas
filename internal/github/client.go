@@ -39,8 +39,9 @@ type Client struct {
 	// SearchInterval spaces Search API calls (30 req/min authenticated, 10 unauthenticated).
 	SearchInterval time.Duration
 	Logger         *slog.Logger
-	// sleep is swappable in tests.
+	// sleep and now are swappable in tests.
 	sleep      func(ctx context.Context, d time.Duration) error
+	now        func() time.Time
 	lastSearch time.Time
 }
 
@@ -58,6 +59,7 @@ func NewClient(baseURL, token string) *Client {
 		SearchInterval: interval,
 		Logger:         slog.Default(),
 		sleep:          sleepCtx,
+		now:            time.Now,
 	}
 }
 
@@ -281,59 +283,128 @@ func buildQuery(qualifiers string, minStars, maxStars int) string {
 	return strings.TrimSpace(qualifiers + " stars:" + strconv.Itoa(minStars) + ".." + upper)
 }
 
-// SearchAll works around the 1000-results-per-query cap with a "star cursor":
-// results are sorted by stars desc, and once a query is exhausted the next one
-// is restricted to stars <= the lowest star count seen. Duplicates at the
-// boundary are dropped by id. fn receives each page as it arrives.
+// crawl tracks the state shared by every query of one SearchAll call.
+type crawl struct {
+	opts SearchOptions
+	seen map[int64]struct{}
+	fn   func([]model.Repository) error
+}
+
+func (cr *crawl) full() bool { return cr.opts.Max > 0 && len(cr.seen) >= cr.opts.Max }
+
+// deliver hands the repositories not seen before to fn, up to opts.Max.
+func (cr *crawl) deliver(repos []model.Repository) error {
+	fresh := make([]model.Repository, 0, len(repos))
+	for _, r := range repos {
+		if cr.full() {
+			break
+		}
+		if _, dup := cr.seen[r.ID]; dup {
+			continue
+		}
+		cr.seen[r.ID] = struct{}{}
+		fresh = append(fresh, r)
+	}
+	if len(fresh) == 0 {
+		return nil
+	}
+	return cr.fn(fresh)
+}
+
+// drain fetches up to MaxSearchPage pages of query, starting from an already
+// fetched first page when one is given. It reports the lowest star count seen
+// and whether the query was capped (more results exist than the API returns).
+func (c *Client) drain(ctx context.Context, cr *crawl, query string, first []model.Repository) (lowest int, capped bool, err error) {
+	lowest = -1
+	for page := 1; page <= MaxSearchPage; page++ {
+		repos := first
+		if page > 1 || first == nil {
+			if repos, _, err = c.SearchPage(ctx, query, page); err != nil {
+				return lowest, false, err
+			}
+		}
+		for _, r := range repos {
+			if lowest < 0 || r.Stars < lowest {
+				lowest = r.Stars
+			}
+		}
+		if err := cr.deliver(repos); err != nil {
+			return lowest, false, err
+		}
+		if cr.full() || len(repos) < PerPage {
+			return lowest, false, nil
+		}
+	}
+	return lowest, true, nil
+}
+
+// SearchAll works around the 1000-results-per-query cap of the Search API.
+//
+// A "star cursor" walks down the star range: results are sorted by stars desc,
+// and once a query is capped the next one is restricted to stars <= the lowest
+// star count seen (duplicates at the boundary are dropped by id). When at least
+// 1000 repositories share one star count S, the cursor cannot move; those are
+// then fetched by slicing stars:S on creation date (see sliceByCreated) and the
+// cursor continues below S. fn receives each batch of new repositories.
 func (c *Client) SearchAll(ctx context.Context, opts SearchOptions, fn func([]model.Repository) error) (int, error) {
-	seen := map[int64]struct{}{}
+	cr := &crawl{opts: opts, seen: map[int64]struct{}{}, fn: fn}
 	upper := -1
 	for {
 		query := buildQuery(opts.Qualifiers, opts.MinStars, upper)
-		lowest := -1
-		for page := 1; page <= MaxSearchPage; page++ {
-			repos, total, err := c.SearchPage(ctx, query, page)
-			if err != nil {
-				return len(seen), err
-			}
-			if page == 1 {
-				c.Logger.Info("github search", "query", query, "total", total)
-			}
-			fresh := make([]model.Repository, 0, len(repos))
-			for _, r := range repos {
-				if lowest < 0 || r.Stars < lowest {
-					lowest = r.Stars
-				}
-				if _, dup := seen[r.ID]; dup {
-					continue
-				}
-				if opts.Max > 0 && len(seen) >= opts.Max {
-					break
-				}
-				seen[r.ID] = struct{}{}
-				fresh = append(fresh, r)
-			}
-			if len(fresh) > 0 {
-				if err := fn(fresh); err != nil {
-					return len(seen), err
-				}
-			}
-			if opts.Max > 0 && len(seen) >= opts.Max {
-				return len(seen), nil
-			}
-			if len(repos) < PerPage {
-				return len(seen), nil // this query is exhausted and was under the cap
-			}
+		c.Logger.Info("github search", "query", query)
+		lowest, capped, err := c.drain(ctx, cr, query, nil)
+		if err != nil || !capped || cr.full() {
+			return len(cr.seen), err
 		}
-		// The query hit the 1000 cap. Move the cursor down.
-		if lowest < 0 || (upper >= 0 && lowest >= upper) {
-			// Every result in the window had the same star count: the cursor cannot
-			// advance. Finer slicing (e.g. by created date) is a future improvement.
-			c.Logger.Warn("star cursor cannot advance; stopping", "stars", lowest)
-			return len(seen), nil
+		if upper < 0 || lowest < upper {
+			upper = lowest // the window ended above the upper bound: move the cursor
+			continue
 		}
-		upper = lowest
+		// Every result in the window had `lowest` stars: slice that star count by
+		// creation date, then continue strictly below it.
+		c.Logger.Info("star cursor stuck; slicing by creation date", "stars", lowest)
+		if err := c.sliceByCreated(ctx, cr, lowest, GitHubEpoch, c.now().UTC()); err != nil || cr.full() {
+			return len(cr.seen), err
+		}
+		if lowest-1 < opts.MinStars {
+			return len(cr.seen), nil
+		}
+		upper = lowest - 1
 	}
+}
+
+// GitHubEpoch predates every repository's creation date.
+var GitHubEpoch = time.Date(2007, 10, 1, 0, 0, 0, 0, time.UTC)
+
+// createdLayout is the timestamp form GitHub documents for created: ranges
+// (YYYY-MM-DDTHH:MM:SS+00:00); url.Values escapes the "+".
+const createdLayout = "2006-01-02T15:04:05+00:00"
+
+// minCreatedSlice is the narrowest creation-date window sliceByCreated splits.
+const minCreatedSlice = time.Second
+
+// sliceByCreated fetches every repository with exactly `stars` stars created in
+// [from, to] by bisecting the date range until each slice fits in one capped query.
+func (c *Client) sliceByCreated(ctx context.Context, cr *crawl, stars int, from, to time.Time) error {
+	query := strings.TrimSpace(fmt.Sprintf("%s stars:%d created:%s..%s",
+		cr.opts.Qualifiers, stars, from.UTC().Format(createdLayout), to.UTC().Format(createdLayout)))
+	first, total, err := c.SearchPage(ctx, query, 1)
+	if err != nil {
+		return err
+	}
+	if total <= MaxSearchPage*PerPage || to.Sub(from) < 2*minCreatedSlice {
+		if total > MaxSearchPage*PerPage {
+			c.Logger.Warn("creation-date slice still over the cap; results truncated",
+				"stars", stars, "from", from, "to", to, "total", total)
+		}
+		_, _, err := c.drain(ctx, cr, query, first)
+		return err
+	}
+	mid := from.Add(to.Sub(from) / 2).Truncate(time.Second)
+	if err := c.sliceByCreated(ctx, cr, stars, from, mid); err != nil || cr.full() {
+		return err
+	}
+	return c.sliceByCreated(ctx, cr, stars, mid.Add(time.Second), to)
 }
 
 // Readme fetches the raw README for owner/name. A missing README returns "".

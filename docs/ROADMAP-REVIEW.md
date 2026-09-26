@@ -36,7 +36,8 @@ autocomplete, fuzzy, synonyms, highlight, facets) vì các phần này rẻ khi 
 - Search API trả **tối đa 1000 kết quả mỗi query** (10 trang × 100) và chỉ **30 request/phút** (có token; 10 nếu không).
   Muốn lấy 100K repo phải **chia nhỏ query** — code hiện tại dùng "star cursor": sort theo stars giảm dần,
   hết 1000 kết quả thì query tiếp `stars:<=min_đã_thấy`, loại trùng theo id. Khi 1000 repo có cùng số star
-  (vùng star thấp) cần chia tiếp theo `created:` — đã ghi TODO.
+  (vùng star thấp), crawler chia riêng số star đó theo `created:` (chia đôi khoảng ngày tạo đến khi mỗi lát
+  ≤ 1000 kết quả) rồi đi tiếp xuống dưới — đã triển khai.
 - Core API **5000 request/giờ**: lấy README cho 100K repo ≈ 20 giờ với 1 token. Cần incremental sync (chỉ
   fetch lại repo có `pushed_at` mới) — bảng `crawl_runs` đã được tạo làm nền.
 - **50M commits qua REST API là không khả thi.** Với M4/M5 nên dùng:
@@ -93,7 +94,7 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | Phase | Nội dung | Trạng thái |
 |---|---|---|
 | 0 | Go + Gin API, Next.js, PostgreSQL, Redis, Elasticsearch, Docker Compose, CI, health check | ✅ |
-| 1 | Crawler GitHub: pagination, rate limit (primary + secondary), retry/backoff, idempotent upsert, bulk index, star cursor vượt giới hạn 1000 | ✅ |
+| 1 | Crawler GitHub: pagination, rate limit (primary + secondary), retry/backoff, idempotent upsert, bulk index, star cursor + chia theo `created:` để vượt giới hạn 1000 | ✅ |
 | 3 | Mapping `dynamic: strict`, custom analyzers (word_delimiter cho tên repo, synonyms lúc search), keyword normalizer | ✅ |
 | 4 | Bool query must/filter, terms/range filters | ✅ |
 | 5 | Field boosts + function_score; judgment list 40 query + `cmd/rankeval` (`_rank_eval`: NDCG, MRR, precision, recall), cổng chặn regression trong CI; trọng số business signals đã tune bằng `rankeval -grid` (sum: 0.5·log stars + 1.0·recency) — xem `docs/experiments/02` và `03` | ✅ trên dữ liệu mẫu (cần tune lại với dữ liệu thật) |
@@ -104,5 +105,5 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
-business signals trên dữ liệu thật, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) chia query theo
-`created:` khi star cursor bị kẹt.
+business signals trên dữ liệu thật, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) semantic /
+hybrid search (Phase 9) cho các miss do khác từ vựng.
