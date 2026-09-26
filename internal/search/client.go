@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -30,16 +31,25 @@ func IndexDefinition() []byte { return indexDefinition }
 var ErrNotFound = errors.New("not found")
 
 type Client struct {
-	baseURL string
-	alias   string
-	http    *http.Client
+	pool  *nodePool
+	alias string
+	http  *http.Client
 }
 
-func NewClient(baseURL, alias string) *Client {
+// NewClient returns a client for the cluster reachable at urls: one node URL,
+// or several separated by commas (see nodes.go for round-robin and failover).
+func NewClient(urls, alias string) *Client {
+	nodes := parseNodes(urls)
+	if len(nodes) == 0 {
+		nodes = []*node{{url: "http://localhost:9200"}}
+	}
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.DialContext = (&net.Dialer{Timeout: dialTimeout, KeepAlive: 30 * time.Second}).DialContext
+	transport.MaxIdleConnsPerHost = 32
 	return &Client{
-		baseURL: strings.TrimRight(baseURL, "/"),
-		alias:   alias,
-		http:    &http.Client{Timeout: 30 * time.Second},
+		pool:  &nodePool{nodes: nodes, now: time.Now},
+		alias: alias,
+		http:  &http.Client{Timeout: 30 * time.Second, Transport: transport},
 	}
 }
 
@@ -56,47 +66,88 @@ func (e *ESError) Error() string {
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body any, contentType string, out any) error {
-	var reader io.Reader
+	var payload []byte
 	switch b := body.(type) {
 	case nil:
 	case []byte:
-		reader = bytes.NewReader(b)
+		payload = b
 	default:
 		buf, err := json.Marshal(b)
 		if err != nil {
 			return err
 		}
-		reader = bytes.NewReader(buf)
+		payload = buf
 	}
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, reader)
-	if err != nil {
-		return err
+	if body != nil && contentType == "" {
+		contentType = "application/json"
 	}
-	if reader != nil {
-		if contentType == "" {
-			contentType = "application/json"
+
+	var status int
+	var data []byte
+	var lastErr error
+	for _, n := range c.pool.order() {
+		status, data, lastErr = c.send(ctx, n, method, path, payload, body != nil, contentType)
+		if lastErr == nil && !retryableStatus(status) {
+			c.pool.markAlive(n)
+			break
 		}
-		req.Header.Set("Content-Type", contentType)
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if lastErr != nil {
+			// A request that may have reached the node is only resent if it
+			// cannot change anything (a write might then be applied twice),
+			// and not after a timeout: the node is slow, not gone, and the
+			// same request would be as slow elsewhere.
+			if !notSent(lastErr) && (!readOnly(method, path) || isTimeout(lastErr)) {
+				return lastErr
+			}
+			c.pool.markDead(n, lastErr)
+			continue
+		}
+		// 502/503/504: this node cannot serve now; another one may.
+		if !readOnly(method, path) {
+			break
+		}
 	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return err
+	if lastErr != nil {
+		return lastErr
 	}
-	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode == http.StatusNotFound {
+	if status == http.StatusNotFound {
 		return fmt.Errorf("%w: %s", ErrNotFound, truncate(string(data), 500))
 	}
-	if resp.StatusCode >= 300 {
-		return &ESError{Status: resp.StatusCode, Body: truncate(string(data), 2000)}
+	if status >= 300 {
+		return &ESError{Status: status, Body: truncate(string(data), 2000)}
 	}
 	if out != nil {
 		return json.Unmarshal(data, out)
 	}
 	return nil
+}
+
+// send makes one attempt against one node.
+func (c *Client) send(ctx context.Context, n *node, method, path string, payload []byte, hasBody bool, contentType string) (int, []byte, error) {
+	var reader io.Reader
+	if hasBody {
+		reader = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, n.url+path, reader)
+	if err != nil {
+		return 0, nil, err
+	}
+	if hasBody {
+		req.Header.Set("Content-Type", contentType)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, nil, err
+	}
+	return resp.StatusCode, data, nil
 }
 
 // Ping returns the cluster health status (green / yellow / red).

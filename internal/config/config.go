@@ -11,6 +11,8 @@ type Config struct {
 	HTTPAddr         string
 	DatabaseURL      string
 	RedisURL         string
+	// ElasticsearchURL is one node URL, or several separated by commas: the
+	// search client spreads requests over them and fails over when one is down.
 	ElasticsearchURL string
 	// SearchAlias is the alias every read and write goes through. The concrete
 	// index behind it is versioned (repositories_<timestamp>) so mappings can be
