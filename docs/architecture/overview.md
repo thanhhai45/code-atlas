@@ -75,6 +75,25 @@ tie-breakers between similarly relevant repositories; they no longer multiply th
 `search.DefaultSignals`, chosen with `rankeval -grid` (docs/experiments/03-business-signal-tuning.md).
 Sum-mode weights depend on the BM25 score scale, which grows with corpus size, so re-tune after large data changes.
 
+### Semantic and hybrid retrieval
+
+```text
+crawler ── EmbeddingText(repo) ──► ai-worker /embed ──► PostgreSQL embedding REAL[] ──► ES dense_vector (cosine, HNSW)
+/search?mode=hybrid ── query ──► ai-worker /embed ──► bool.should[ BM25 + signals , knn(boost 20, cosine ≥ 0.5) ]
+```
+
+- The ai-worker (`ai-worker/`, FastAPI + fastembed/ONNX) serves `all-MiniLM-L6-v2` (384 dims) on CPU. Embeddings
+  are computed at ingest time and stored in PostgreSQL. `crawler -reindex` backfills rows that have none.
+- `mode=semantic` is a query-level `knn` clause; `mode=hybrid` adds it next to the lexical query in a `bool.should`,
+  i.e. linear score fusion. Both carry the same filters as the lexical query (as kNN pre-filters). Because kNN is
+  a query clause, sorting, `search_after` and `_rank_eval` work unchanged.
+- Semantic retrieval only applies to relevance-sorted text queries. Stars/date sorts stay lexical, so they do not
+  list nearest neighbours that match nothing the user typed.
+- If the ai-worker is unreachable, `/search` serves lexical results (reported in the response's `mode`, not
+  cached) and `/health` reports embeddings as `degraded`.
+- RRF fusion is not used: it requires a paid Elasticsearch license.
+- Lexical remains the default mode: see docs/experiments/04-semantic-hybrid-search.md.
+
 ### Pagination
 
 `from + size` is limited by `index.max_result_window` (10,000): Elasticsearch has to collect and sort

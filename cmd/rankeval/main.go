@@ -23,6 +23,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/thanhhai45/code-atlas/internal/config"
+	"github.com/thanhhai45/code-atlas/internal/embed"
 	"github.com/thanhhai45/code-atlas/internal/search"
 )
 
@@ -59,12 +60,49 @@ func (p JudgmentParams) toSearch() search.Params {
 
 type variant struct {
 	Name string
+	Mode string // retrieval mode; empty = search.DefaultMode
 	Opts search.RankingOptions
 }
 
+// The first two variants are always evaluated and always shown per query.
 var variants = []variant{
 	{Name: "default", Opts: search.RankingOptions{}},
-	{Name: "bm25_only", Opts: search.RankingOptions{DisableBusinessSignals: true}},
+	{Name: "bm25_only", Mode: search.ModeLexical, Opts: search.RankingOptions{DisableBusinessSignals: true}},
+}
+
+// semanticGridVariants spans kNN-only and hybrid (BM25 + kNN) configurations
+// explored by -semantic-grid.
+func semanticGridVariants() []variant {
+	var out []variant
+	add := func(mode string, s search.SemanticConfig) {
+		name := fmt.Sprintf("%s boost=%g minsim=%g", mode, s.Boost, s.MinSimilarity)
+		if mode == search.ModeSemantic {
+			name = fmt.Sprintf("semantic minsim=%g", s.MinSimilarity)
+		}
+		out = append(out, variant{Name: name, Mode: mode, Opts: search.RankingOptions{Semantic: &s}})
+	}
+	out = append(out, variant{Name: "lexical", Mode: search.ModeLexical})
+	for _, minSim := range []float64{0, 0.3, 0.4, 0.5} {
+		add(search.ModeSemantic, search.SemanticConfig{Boost: 1, NumCandidates: 100, MinSimilarity: minSim})
+	}
+	for _, boost := range []float64{2, 5, 10, 20, 40} {
+		for _, minSim := range []float64{0, 0.3, 0.4, 0.5} {
+			add(search.ModeHybrid, search.SemanticConfig{Boost: boost, NumCandidates: 100, MinSimilarity: minSim})
+		}
+	}
+	return out
+}
+
+// needsVectors reports whether any variant runs semantic or hybrid retrieval.
+func needsVectors() bool {
+	for _, v := range variants {
+		p := search.Params{Query: "x", Mode: v.Mode}
+		p.Normalize()
+		if p.NeedsVector() {
+			return true
+		}
+	}
+	return false
 }
 
 // gridVariants spans the business-signal weights explored by -grid.
@@ -123,6 +161,10 @@ type Report struct {
 	PerQuery map[string]map[string]map[string]float64 `json:"per_query"`      // variant -> query -> metric -> score
 	Unrated  map[string][]string                      `json:"unrated"`        // query -> unrated full names in top k (default variant)
 	Best     string                                   `json:"best,omitempty"` // best grid variant (-grid only)
+	// Pool lists, per query, unrated documents in the top k of ANY variant. Judge
+	// these before comparing variants, or variants that surface new documents are
+	// penalized just for being different from the ones the judgments came from.
+	Pool map[string][]string `json:"pool,omitempty"`
 }
 
 func main() {
@@ -133,12 +175,17 @@ func main() {
 	verbose := flag.Bool("v", false, "print the top hits of every query")
 	jsonOut := flag.String("json", "", "write the full report to this file")
 	grid := flag.Bool("grid", false, "also evaluate a grid of business-signal weights and report the best")
+	semanticGrid := flag.Bool("semantic-grid", false, "also evaluate semantic and hybrid configurations (needs EMBEDDINGS_URL)")
+	pool := flag.Bool("pool", false, "list unrated documents in the top k of any variant (to extend the judgments)")
 	flag.Parse()
 	if *grid {
 		variants = append(variants, gridVariants()...)
 	}
+	if *semanticGrid {
+		variants = append(variants, semanticGridVariants()...)
+	}
 
-	if err := run(*path, *k, thresholds{ndcg: *minNDCG, recall: *minRecall}, *verbose, *jsonOut); err != nil {
+	if err := run(*path, *k, thresholds{ndcg: *minNDCG, recall: *minRecall}, *verbose, *pool, *jsonOut); err != nil {
 		slog.Error("rankeval failed", "err", err)
 		os.Exit(1)
 	}
@@ -146,7 +193,7 @@ func main() {
 
 type thresholds struct{ ndcg, recall float64 }
 
-func run(path string, k int, min thresholds, verbose bool, jsonOut string) error {
+func run(path string, k int, min thresholds, verbose, pool bool, jsonOut string) error {
 	ctx := context.Background()
 	cfg := config.Load()
 	es := search.NewClient(cfg.ElasticsearchURL, cfg.SearchAlias)
@@ -198,6 +245,25 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 		nameByID[id] = n
 	}
 
+	// Semantic and hybrid variants need query embeddings from the ai-worker.
+	queryVectors := map[string][]float32{}
+	if needsVectors() {
+		if cfg.EmbeddingsURL == "" {
+			return errors.New("semantic or hybrid variants need EMBEDDINGS_URL (the ai-worker)")
+		}
+		texts := make([]string, len(jf.Queries))
+		for i, j := range jf.Queries {
+			texts[i] = j.Params.Q
+		}
+		vectors, err := embed.NewClient(cfg.EmbeddingsURL).Embed(ctx, texts)
+		if err != nil {
+			return fmt.Errorf("embed queries: %w", err)
+		}
+		for i, j := range jf.Queries {
+			queryVectors[j.ID] = vectors[i]
+		}
+	}
+
 	metrics := []map[string]any{search.NDCG(k), search.MRR(k), search.Precision(5), search.Recall(k)}
 	report := Report{
 		Index: index, Queries: len(jf.Queries),
@@ -206,11 +272,15 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 		Unrated:  map[string][]string{},
 	}
 	var topHits map[string]search.EvalQueryResult
+	poolIDs := map[string]map[string]bool{} // query -> unrated ids in any variant's top k
 
 	for _, v := range variants {
 		requests := make([]search.EvalRequest, 0, len(jf.Queries))
 		for _, j := range jf.Queries {
-			req := search.EvalRequest{ID: j.ID, Request: search.BuildRankEvalRequest(j.Params.toSearch(), v.Opts)}
+			p := j.Params.toSearch()
+			p.Mode = v.Mode
+			p.QueryVector = queryVectors[j.ID]
+			req := search.EvalRequest{ID: j.ID, Request: search.BuildRankEvalRequest(p, v.Opts)}
 			for n, r := range j.Ratings {
 				req.Ratings = append(req.Ratings, search.RatedDoc{ID: ids[strings.ToLower(n)], Rating: r})
 			}
@@ -234,8 +304,18 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 				}
 				report.PerQuery[v.Name][id][name] = q.Score
 			}
-			if v.Name == variants[0].Name && name == search.MetricName(search.NDCG(k)) {
-				topHits = res.Queries
+			if name == search.MetricName(search.NDCG(k)) {
+				if v.Name == variants[0].Name {
+					topHits = res.Queries
+				}
+				for id, q := range res.Queries {
+					for _, u := range q.UnratedDocs {
+						if poolIDs[id] == nil {
+							poolIDs[id] = map[string]bool{}
+						}
+						poolIDs[id][u] = true
+					}
+				}
 			}
 		}
 	}
@@ -257,6 +337,13 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 			}
 		}
 	}
+	for _, ids := range poolIDs {
+		for id := range ids {
+			if _, ok := nameByID[id]; !ok {
+				unknown = append(unknown, id)
+			}
+		}
+	}
 	if len(unknown) > 0 {
 		names, err := es.FullNames(ctx, unknown)
 		if err != nil {
@@ -271,6 +358,15 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 			report.Unrated[id] = append(report.Unrated[id], nameByID[u])
 		}
 	}
+	if pool {
+		report.Pool = map[string][]string{}
+		for id, ids := range poolIDs {
+			for u := range ids {
+				report.Pool[id] = append(report.Pool[id], nameByID[u])
+			}
+			sort.Strings(report.Pool[id])
+		}
+	}
 
 	if jsonOut != "" {
 		buf, _ := json.MarshalIndent(report, "", "  ")
@@ -281,6 +377,14 @@ func run(path string, k int, min thresholds, verbose bool, jsonOut string) error
 	printReport(os.Stdout, jf, report, k)
 	if verbose {
 		printHits(os.Stdout, jf, topHits, nameByID)
+	}
+	if pool {
+		fmt.Printf("\nunrated documents in the top %d of any variant (judge these, then re-run)\n", k)
+		for _, j := range jf.Queries {
+			if names := report.Pool[j.ID]; len(names) > 0 {
+				fmt.Printf("  %-26s %s\n", j.ID, strings.Join(names, ", "))
+			}
+		}
 	}
 	return checkThresholds(report.Metrics[variants[0].Name], k, min)
 }

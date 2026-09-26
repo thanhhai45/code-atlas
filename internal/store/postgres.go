@@ -78,8 +78,8 @@ const upsertSQL = `
 INSERT INTO repositories (
     github_id, name, full_name, owner, description, url, homepage, language, topics,
     license, license_name, stars, forks, watchers, open_issues, default_branch,
-    archived, fork, readme, created_at, updated_at, pushed_at, synced_at
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22, now())
+    archived, fork, readme, created_at, updated_at, pushed_at, embedding, synced_at
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23, now())
 ON CONFLICT (github_id) DO UPDATE SET
     name = EXCLUDED.name, full_name = EXCLUDED.full_name, owner = EXCLUDED.owner,
     description = EXCLUDED.description, url = EXCLUDED.url, homepage = EXCLUDED.homepage,
@@ -90,7 +90,10 @@ ON CONFLICT (github_id) DO UPDATE SET
     -- keep a previously fetched README when this sync did not fetch one
     readme = CASE WHEN EXCLUDED.readme = '' THEN repositories.readme ELSE EXCLUDED.readme END,
     created_at = EXCLUDED.created_at, updated_at = EXCLUDED.updated_at,
-    pushed_at = EXCLUDED.pushed_at, synced_at = now()`
+    pushed_at = EXCLUDED.pushed_at,
+    -- keep a previously computed embedding when this sync did not compute one
+    embedding = COALESCE(EXCLUDED.embedding, repositories.embedding),
+    synced_at = now()`
 
 // UpsertRepositories writes a batch idempotently: re-running a crawl never duplicates rows.
 func (s *Store) UpsertRepositories(ctx context.Context, repos []model.Repository) error {
@@ -99,21 +102,21 @@ func (s *Store) UpsertRepositories(ctx context.Context, repos []model.Repository
 		batch.Queue(upsertSQL,
 			r.ID, r.Name, r.FullName, r.Owner, r.Description, r.URL, r.Homepage, r.Language, nonNil(r.Topics),
 			r.License, r.LicenseName, r.Stars, r.Forks, r.Watchers, r.OpenIssues, r.DefaultBranch,
-			r.Archived, r.Fork, model.TruncateReadme(r.Readme), r.CreatedAt, r.UpdatedAt, r.PushedAt)
+			r.Archived, r.Fork, model.TruncateReadme(r.Readme), r.CreatedAt, r.UpdatedAt, r.PushedAt, nilIfEmpty(r.Embedding))
 	}
 	return s.pool.SendBatch(ctx, batch).Close()
 }
 
 const selectColumns = `github_id, name, full_name, owner, description, url, homepage, language, topics,
     license, license_name, stars, forks, watchers, open_issues, default_branch, archived, fork,
-    readme, categories, technologies, use_cases, created_at, updated_at, pushed_at`
+    readme, categories, technologies, use_cases, created_at, updated_at, pushed_at, embedding`
 
 func scanRepository(row pgx.Row) (model.Repository, error) {
 	var r model.Repository
 	err := row.Scan(&r.ID, &r.Name, &r.FullName, &r.Owner, &r.Description, &r.URL, &r.Homepage,
 		&r.Language, &r.Topics, &r.License, &r.LicenseName, &r.Stars, &r.Forks, &r.Watchers,
 		&r.OpenIssues, &r.DefaultBranch, &r.Archived, &r.Fork, &r.Readme, &r.Categories,
-		&r.Technologies, &r.UseCases, &r.CreatedAt, &r.UpdatedAt, &r.PushedAt)
+		&r.Technologies, &r.UseCases, &r.CreatedAt, &r.UpdatedAt, &r.PushedAt, &r.Embedding)
 	return r, err
 }
 
@@ -205,6 +208,28 @@ func (s *Store) FinishCrawlRun(ctx context.Context, run *CrawlRun, runErr error)
 	_, err := s.pool.Exec(ctx, `UPDATE crawl_runs SET status=$2, fetched=$3, indexed=$4, failed=$5,
 		error=$6, finished_at=$7 WHERE id=$1`, run.ID, status, run.Fetched, run.Indexed, run.Failed, msg, time.Now())
 	return err
+}
+
+// UpdateEmbeddings stores embeddings computed after the fact (e.g. a reindex backfill).
+func (s *Store) UpdateEmbeddings(ctx context.Context, repos []model.Repository) error {
+	batch := &pgx.Batch{}
+	for _, r := range repos {
+		if len(r.Embedding) > 0 {
+			batch.Queue(`UPDATE repositories SET embedding = $2 WHERE github_id = $1`, r.ID, r.Embedding)
+		}
+	}
+	if batch.Len() == 0 {
+		return nil
+	}
+	return s.pool.SendBatch(ctx, batch).Close()
+}
+
+// nilIfEmpty turns an empty vector into SQL NULL so COALESCE keeps the old one.
+func nilIfEmpty(v []float32) any {
+	if len(v) == 0 {
+		return nil
+	}
+	return v
 }
 
 func nonNil(s []string) []string {

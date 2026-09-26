@@ -1,4 +1,4 @@
-.PHONY: help up down logs seed crawl reindex rankeval test test-integration lint build dev-api dev-web
+.PHONY: help up down logs seed crawl reindex rankeval rankeval-semantic test test-integration lint build dev-api dev-web
 
 CRAWL_MIN_STARS ?= 1000
 CRAWL_MAX ?= 10000
@@ -24,14 +24,17 @@ crawl: ## Crawl GitHub (set GITHUB_TOKEN in .env)
 reindex: ## Rebuild the index from PostgreSQL and swap the alias
 	docker compose run --rm crawler -reindex
 
+rankeval-semantic: ## Evaluate semantic and hybrid configurations (needs make up && make seed)
+	EMBEDDINGS_URL=http://localhost:8000 go run ./cmd/rankeval -semantic-grid -pool
+
 rankeval: ## Measure relevance against testdata/judgments.json (needs make seed)
 	go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
 
 test: ## Run Go tests
 	go test -race ./...
 
-test-integration: ## Run integration tests against the seeded Elasticsearch (needs make seed)
-	go test -count=1 -tags integration ./internal/search/
+test-integration: ## Run integration tests against the seeded Elasticsearch (needs make up && make seed)
+	EMBEDDINGS_URL=http://localhost:8000 go test -count=1 -tags integration ./internal/search/
 
 lint: ## go vet + gofmt + web lint/typecheck
 	go vet ./...

@@ -16,6 +16,7 @@ import (
 	"github.com/thanhhai45/code-atlas/internal/api"
 	"github.com/thanhhai45/code-atlas/internal/cache"
 	"github.com/thanhhai45/code-atlas/internal/config"
+	"github.com/thanhhai45/code-atlas/internal/embed"
 	"github.com/thanhhai45/code-atlas/internal/search"
 	"github.com/thanhhai45/code-atlas/internal/store"
 )
@@ -52,6 +53,11 @@ func run() error {
 	} else {
 		defer c.Close()
 		srv.Cache = c
+	}
+	if cfg.EmbeddingsURL != "" {
+		srv.Embedder = embed.NewClient(cfg.EmbeddingsURL)
+	} else {
+		slog.Info("EMBEDDINGS_URL not set: semantic and hybrid search are disabled")
 	}
 
 	if os.Getenv("GIN_MODE") == "" {

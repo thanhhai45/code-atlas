@@ -247,6 +247,9 @@ func ToDocument(r model.Repository) map[string]any {
 			doc[k] = v
 		}
 	}
+	if len(r.Embedding) > 0 {
+		doc["embedding"] = r.Embedding
+	}
 	for k, v := range map[string][]string{"categories": r.Categories, "technologies": r.Technologies, "use_cases": r.UseCases} {
 		if len(v) > 0 {
 			doc[k] = v

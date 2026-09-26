@@ -7,6 +7,12 @@ import Pagination from "@/components/Pagination";
 import { search } from "@/lib/api";
 import { toSearchParams, withParams } from "@/lib/params";
 
+const MODES = [
+  { key: "lexical", label: "Keyword", title: "BM25 full-text search (default)" },
+  { key: "hybrid", label: "Hybrid", title: "Keyword + semantic (embedding) similarity" },
+  { key: "semantic", label: "Semantic", title: "Embedding similarity only" },
+];
+
 const SORTS = [
   { key: "relevance", label: "Best match" },
   { key: "stars", label: "Most stars" },
@@ -33,6 +39,13 @@ export default async function Home(props: PageProps<"/">) {
   if (!result) return null;
 
   const sort = params.get("sort") ?? "relevance";
+  const mode = params.get("mode") ?? "lexical";
+  const modeNote =
+    params.get("q") && mode !== result.mode
+      ? sort !== "relevance"
+        ? "Semantic matching only applies to “Best match” ordering."
+        : "Semantic search is unavailable right now; showing keyword results."
+      : null;
   const activeFilters = ["language", "license", "topic", "min_stars", "max_stars", "pushed_within"].some((k) => params.has(k));
 
   return (
@@ -58,6 +71,18 @@ export default async function Home(props: PageProps<"/">) {
                 </Link>
               )}
             </p>
+            <nav className="flex gap-1" aria-label="Search mode">
+              {MODES.map((m) => (
+                <Link
+                  key={m.key}
+                  title={m.title}
+                  href={withParams(params, { mode: m.key === "lexical" ? undefined : m.key, page: undefined })}
+                  className={`rounded px-2 py-1 ${mode === m.key ? "bg-accent/15 font-medium text-accent" : "text-muted hover:bg-accent/5"}`}
+                >
+                  {m.label}
+                </Link>
+              ))}
+            </nav>
             <nav className="flex gap-1" aria-label="Sort">
               {SORTS.map((s) => (
                 <Link
@@ -70,6 +95,8 @@ export default async function Home(props: PageProps<"/">) {
               ))}
             </nav>
           </div>
+
+          {modeNote && <p className="mb-3 text-xs text-muted">{modeNote}</p>}
 
           {result.hits.length === 0 ? (
             <p className="rounded-lg border border-border bg-surface p-8 text-center text-muted">

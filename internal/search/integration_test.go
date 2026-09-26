@@ -10,6 +10,8 @@ import (
 	"context"
 	"os"
 	"testing"
+
+	"github.com/thanhhai45/code-atlas/internal/embed"
 )
 
 func newIntegrationClient(t *testing.T) *Client {
@@ -128,5 +130,134 @@ func TestCursorFromOffsetPageContinuesAtNextPage(t *testing.T) {
 		if a[i] != b[i] {
 			t.Fatalf("page 3 %v vs cursor page %v", a, b)
 		}
+	}
+}
+
+// The tests below exercise the semantic path. They need the seed data indexed
+// with embeddings (crawler run with EMBEDDINGS_URL) and the ai-worker for
+// query vectors, and are skipped otherwise.
+
+func embedQuery(t *testing.T, q string) []float32 {
+	t.Helper()
+	url := os.Getenv("EMBEDDINGS_URL")
+	if url == "" {
+		t.Skip("EMBEDDINGS_URL not set")
+	}
+	vectors, err := embed.NewClient(url).Embed(context.Background(), []string{q})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return vectors[0]
+}
+
+func fullNames(hits []Hit) []string {
+	out := make([]string, len(hits))
+	for i, h := range hits {
+		out[i] = h.FullName
+	}
+	return out
+}
+
+func contains(names []string, want string) bool {
+	for _, n := range names {
+		if n == want {
+			return true
+		}
+	}
+	return false
+}
+
+// Semantic retrieval finds repositories that share no words with the query:
+// "messaging system" does not lexically match Kafka's description.
+func TestSemanticFindsVocabularyMismatch(t *testing.T) {
+	c := newIntegrationClient(t)
+	ctx := context.Background()
+	vector := embedQuery(t, "messaging system")
+
+	lexical, err := c.Search(ctx, Params{Query: "messaging system", Mode: ModeLexical, Size: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(fullNames(lexical.Hits), "apache/kafka") {
+		t.Fatal("test premise broken: lexical search already finds kafka")
+	}
+	semantic, err := c.Search(ctx, Params{Query: "messaging system", Mode: ModeSemantic, QueryVector: vector, Size: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if semantic.Mode != ModeSemantic {
+		t.Fatalf("mode = %q", semantic.Mode)
+	}
+	if !contains(fullNames(semantic.Hits), "apache/kafka") {
+		t.Errorf("semantic search should find kafka, got %v", fullNames(semantic.Hits))
+	}
+}
+
+// Hybrid keeps every lexical match (they satisfy the should clause) and pages
+// with cursors like any relevance search.
+func TestHybridKeepsLexicalMatchesAndPages(t *testing.T) {
+	c := newIntegrationClient(t)
+	ctx := context.Background()
+	q := "search engine"
+	vector := embedQuery(t, q)
+
+	lexical, err := c.Search(ctx, Params{Query: q, Mode: ModeLexical, Size: MaxPageSize})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hybrid, err := c.Search(ctx, Params{Query: q, Mode: ModeHybrid, QueryVector: vector, Size: MaxPageSize})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[int64]bool{}
+	for _, h := range hybrid.Hits {
+		got[h.ID] = true
+	}
+	for _, h := range lexical.Hits {
+		if !got[h.ID] {
+			t.Errorf("hybrid dropped lexical match %s", h.FullName)
+		}
+	}
+
+	var paged []int64
+	p := Params{Query: q, Mode: ModeHybrid, QueryVector: vector, Size: 3}
+	for range 50 {
+		res, err := c.Search(ctx, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		paged = append(paged, ids(res.Hits)...)
+		if res.NextCursor == "" {
+			break
+		}
+		if p.SearchAfter, err = DecodeCursor(res.NextCursor, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if want := ids(hybrid.Hits); len(paged) != len(want) {
+		t.Fatalf("paged %d hybrid results, want %d", len(paged), len(want))
+	}
+}
+
+func TestSimilarUsesEmbeddings(t *testing.T) {
+	c := newIntegrationClient(t)
+	embedQuery(t, "x") // skip unless the semantic setup is present
+	const qdrant = 900000013
+	hits, err := c.Similar(context.Background(), qdrant, 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := fullNames(hits)
+	if len(hits) != 6 || contains(names, "qdrant/qdrant") {
+		t.Fatalf("similar(qdrant) = %v", names)
+	}
+	vectorDBs := 0
+	for _, n := range []string{"milvus-io/milvus", "weaviate/weaviate", "chroma-core/chroma", "pgvector/pgvector", "facebookresearch/faiss"} {
+		if contains(names, n) {
+			vectorDBs++
+		}
+	}
+	if vectorDBs < 3 {
+		t.Errorf("expected mostly vector databases, got %v", names)
 	}
 }

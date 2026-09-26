@@ -31,6 +31,8 @@ export type SearchResult = {
   facets: Record<string, Bucket[]>;
   /** search_after cursor for the next page; absent on the last page. */
   next_cursor?: string;
+  /** Retrieval mode that actually ran: lexical, hybrid or semantic. */
+  mode: string;
 };
 
 export type Repository = Omit<Hit, "score" | "highlight"> & {

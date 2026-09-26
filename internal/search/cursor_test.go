@@ -77,8 +77,26 @@ func TestBuildSearchQueryWithSearchAfter(t *testing.T) {
 
 func TestDecodeCursorNormalizesParams(t *testing.T) {
 	// Callers may pass Params straight from a request, before Normalize.
-	cur, _ := EncodeCursor("relevance", []any{json.Number("1"), json.Number("2"), json.Number("3")})
+	cur, _ := EncodeCursor("relevance:"+DefaultMode, []any{json.Number("1"), json.Number("2"), json.Number("3")})
 	if _, err := DecodeCursor(cur, Params{Query: "orm"}); err != nil {
 		t.Errorf("un-normalized params: %v", err)
+	}
+}
+
+func TestCursorSortNameIgnoresVectorPresence(t *testing.T) {
+	// The API decodes cursors before embedding the query and encodes them after,
+	// so both sides must agree whether or not QueryVector is set yet.
+	before := Params{Query: "orm", Mode: ModeHybrid}
+	after := before
+	after.QueryVector = []float32{0.1, 0.2}
+	before.Normalize()
+	after.Normalize()
+	if sortName(before) != sortName(after) || sortName(before) != "relevance:hybrid" {
+		t.Errorf("sortName before=%q after=%q", sortName(before), sortName(after))
+	}
+	lexical := Params{Query: "orm", Mode: ModeLexical}
+	lexical.Normalize()
+	if sortName(lexical) == sortName(after) {
+		t.Error("lexical and hybrid cursors must not be interchangeable")
 	}
 }
