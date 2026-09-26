@@ -3,7 +3,7 @@
 export type RawParams = Record<string, string | string[] | undefined>;
 
 export const MULTI_KEYS = ["language", "license", "topic"] as const;
-const SINGLE_KEYS = ["q", "sort", "min_stars", "max_stars", "pushed_within", "page", "include_archived"] as const;
+const SINGLE_KEYS = ["q", "sort", "min_stars", "max_stars", "pushed_within", "page", "cursor", "include_archived"] as const;
 
 export function toSearchParams(raw: RawParams): URLSearchParams {
   const out = new URLSearchParams();
@@ -22,6 +22,7 @@ export function toggle(params: URLSearchParams, key: string, value: string): str
   const values = next.getAll(key);
   next.delete(key);
   next.delete("page");
+  next.delete("cursor");
   if (values.includes(value)) {
     values.filter((v) => v !== value).forEach((v) => next.append(key, v));
   } else if ((MULTI_KEYS as readonly string[]).includes(key)) {
@@ -32,9 +33,14 @@ export function toggle(params: URLSearchParams, key: string, value: string): str
   return `/?${next.toString()}`;
 }
 
-/** Returns a copy of params with the given single-valued keys replaced (undefined removes). */
+/**
+ * Returns a copy of params with the given single-valued keys replaced (undefined removes).
+ * A cursor only makes sense for the exact search it came from, so it is dropped
+ * unless the change sets one.
+ */
 export function withParams(params: URLSearchParams, changes: Record<string, string | undefined>): string {
   const next = new URLSearchParams(params);
+  if (!("cursor" in changes)) next.delete("cursor");
   for (const [k, v] of Object.entries(changes)) {
     if (v === undefined) next.delete(k);
     else next.set(k, v);

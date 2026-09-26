@@ -97,12 +97,12 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 3 | Mapping `dynamic: strict`, custom analyzers (word_delimiter cho tên repo, synonyms lúc search), keyword normalizer | ✅ |
 | 4 | Bool query must/filter, terms/range filters | ✅ |
 | 5 | Field boosts + function_score; judgment list 40 query + `cmd/rankeval` (`_rank_eval`: NDCG, MRR, precision, recall), cổng chặn regression trong CI; trọng số business signals đã tune bằng `rankeval -grid` (sum: 0.5·log stars + 1.0·recency) — xem `docs/experiments/02` và `03` | ✅ trên dữ liệu mẫu (cần tune lại với dữ liệu thật) |
-| 6 | Autocomplete (search_as_you_type), fuzzy, synonyms, highlight; from/size (search_after: TODO) | 🟡 |
+| 6 | Autocomplete (search_as_you_type), fuzzy, synonyms, highlight; from/size trong giới hạn 10K + `search_after` với cursor cho phân trang sâu (integration test trên ES thật trong CI) | ✅ |
 | 7 | Facets multi-select đúng chuẩn (post_filter + filter agg), stars range, activity date_range | ✅ |
 | 9 | Similar repositories bằng `more_like_this` (baseline lexical để so với vector sau này) | 🟡 baseline |
 | 13 | Versioned index + alias swap reindex | ✅ (sớm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
-business signals trên dữ liệu thật, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) `search_after`,
-(5) chia query theo `created:` khi star cursor bị kẹt.
+business signals trên dữ liệu thật, (3) viết kết quả cho `docs/experiments/01-fundamentals.md`, (4) chia query theo
+`created:` khi star cursor bị kẹt.

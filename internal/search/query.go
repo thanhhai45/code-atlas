@@ -50,8 +50,11 @@ type Params struct {
 	IncludeArchived bool
 	IncludeForks    bool
 	Sort            string // relevance (default) | stars | updated
-	Page            int    // 1-based
+	Page            int    // 1-based; ignored when SearchAfter is set
 	Size            int
+	// SearchAfter holds the sort values of the last hit of the previous page
+	// (decoded from a cursor). It replaces from+size for deep pagination.
+	SearchAfter []any
 }
 
 // Normalize clamps paging values and fixes defaults.
@@ -65,6 +68,9 @@ func (p *Params) Normalize() {
 	}
 	if p.Page < 1 {
 		p.Page = 1
+	}
+	if len(p.SearchAfter) > 0 {
+		p.Page = 1 // search_after pages are positioned by the cursor, not an offset
 	}
 	if maxPage := MaxResultWindow / p.Size; p.Page > maxPage {
 		p.Page = maxPage
@@ -279,6 +285,10 @@ func BuildSearchQuery(p Params) map[string]any {
 		"_source":          map[string]any{"excludes": []string{"readme"}},
 		"sort":             sortClause(p),
 		"aggs":             buildAggs(facets),
+	}
+	if len(p.SearchAfter) > 0 {
+		delete(body, "from") // Elasticsearch requires from == 0 with search_after
+		body["search_after"] = p.SearchAfter
 	}
 	if len(facets) > 0 {
 		body["post_filter"] = map[string]any{"bool": map[string]any{"filter": filterValues(facets, "")}}

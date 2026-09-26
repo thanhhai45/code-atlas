@@ -1,4 +1,4 @@
-.PHONY: help up down logs seed crawl reindex rankeval test lint build dev-api dev-web
+.PHONY: help up down logs seed crawl reindex rankeval test test-integration lint build dev-api dev-web
 
 CRAWL_MIN_STARS ?= 1000
 CRAWL_MAX ?= 10000
@@ -29,6 +29,9 @@ rankeval: ## Measure relevance against testdata/judgments.json (needs make seed)
 
 test: ## Run Go tests
 	go test -race ./...
+
+test-integration: ## Run integration tests against the seeded Elasticsearch (needs make seed)
+	go test -count=1 -tags integration ./internal/search/
 
 lint: ## go vet + gofmt + web lint/typecheck
 	go vet ./...

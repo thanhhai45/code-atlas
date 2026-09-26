@@ -144,8 +144,9 @@ func (s *Server) similarRepositories(c *gin.Context) {
 
 // ParseSearchParams maps query-string parameters to search.Params.
 // Multi-value filters accept both repeated keys (?language=Go&language=Rust)
-// and comma-separated values (?language=Go,Rust).
-func ParseSearchParams(c *gin.Context) search.Params {
+// and comma-separated values (?language=Go,Rust). A cursor (from a previous
+// response's next_cursor) switches to search_after pagination.
+func ParseSearchParams(c *gin.Context) (search.Params, error) {
 	p := search.Params{
 		Query:           c.Query("q"),
 		Languages:       multi(c, "language"),
@@ -165,11 +166,23 @@ func ParseSearchParams(c *gin.Context) search.Params {
 		p.MaxStars = &v
 	}
 	p.Normalize()
-	return p
+	if cur := c.Query("cursor"); cur != "" {
+		values, err := search.DecodeCursor(cur, p)
+		if err != nil {
+			return p, err
+		}
+		p.SearchAfter = values
+		p.Normalize()
+	}
+	return p, nil
 }
 
 func (s *Server) search(c *gin.Context) {
-	p := ParseSearchParams(c)
+	p, err := ParseSearchParams(c)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid cursor: it is malformed or belongs to a different sort order"})
+		return
+	}
 	ctx := c.Request.Context()
 	key := cache.Key("search", p)
 
@@ -182,7 +195,7 @@ func (s *Server) search(c *gin.Context) {
 	}
 	metrics.CacheResults.WithLabelValues("miss").Inc()
 
-	res, err := s.Search.Search(ctx, p)
+	res, err = s.Search.Search(ctx, p)
 	if err != nil {
 		internalError(c, err)
 		return

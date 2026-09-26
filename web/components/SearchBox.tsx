@@ -35,6 +35,7 @@ export default function SearchBox() {
   function submit(q: string) {
     const next = new URLSearchParams(searchParams);
     next.delete("page");
+    next.delete("cursor");
     if (q.trim()) next.set("q", q.trim());
     else next.delete("q");
     setOpen(false);
