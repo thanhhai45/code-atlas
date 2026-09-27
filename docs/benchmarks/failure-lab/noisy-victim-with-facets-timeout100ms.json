@@ -1,0 +1,38 @@
+{
+  "target": "es",
+  "alias": "bench_c_p3",
+  "index": {
+    "docs": 1000000,
+    "store_bytes": 849025168,
+    "segments": 3
+  },
+  "duration": "30s",
+  "warmup": "3s",
+  "seed": 1,
+  "urls": [
+    "http://localhost:9200",
+    "http://localhost:9201",
+    "http://localhost:9202"
+  ],
+  "client_cpus": 4,
+  "started_at": "2026-09-27T10:03:21.109021984Z",
+  "results": [
+    {
+      "workload": "full_search",
+      "concurrency": 4,
+      "requests": 401,
+      "errors": 0,
+      "error_rate": 0,
+      "qps": 13.234078666529609,
+      "p50_ms": 297.013,
+      "p95_ms": 464.136,
+      "p99_ms": 526.832,
+      "max_ms": 611.998,
+      "mean_ms": 300.159,
+      "mean_took_ms": 292.23940149625935,
+      "mean_hits": 2099.1521197007482,
+      "retries": 0,
+      "partial": 0
+    }
+  ]
+}
