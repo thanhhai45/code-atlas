@@ -178,6 +178,7 @@ make cluster-up                      # es01-es03, 1 CPU and 1 GB heap each (infr
 make datagen BENCH_DOCS=1000000 BENCH_SHARDS=3 BENCH_REPLICAS=1
 go run ./cmd/bench -url http://localhost:9200,http://localhost:9201,http://localhost:9202
 make failover                        # kill es03 under load: client errors, retries, cluster health per second
+make diagnose                        # read-only health report: red/yellow indices, write blocks, why shards are unassigned
 make cluster-down
 ```
 
@@ -191,6 +192,10 @@ The API, crawler and tools accept several nodes in `ELASTICSEARCH_URL`, comma-se
 (`http://localhost:9200,http://localhost:9201,http://localhost:9202`). Requests go round-robin over them; a node
 that cannot be reached is skipped for 30 s and the request goes to the next node. Reads are also resent after a
 connection lost mid-request; writes only when they never reached the node, so they are never applied twice.
+
+**Failure lab and runbooks.** [Experiment 08](docs/experiments/08-failure-lab.md) reproduces expensive requests
+next to normal search, a cache stampede, slow log analysis, an out-of-memory node, a full disk and unassigned
+shards; [`docs/incidents/`](docs/incidents/README.md) has a runbook for each symptom.
 
 ## Repository layout
 
