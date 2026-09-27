@@ -12,6 +12,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/thanhhai45/code-atlas/internal/cache"
 	"github.com/thanhhai45/code-atlas/internal/metrics"
@@ -54,6 +55,19 @@ type Server struct {
 	Search   Searcher
 	Cache    Cache
 	Embedder Embedder
+
+	// flight coalesces identical searches that miss the cache at the same
+	// time into one Elasticsearch request (see search).
+	flight singleflight.Group
+}
+
+// searchFlightTimeout bounds a coalesced search, which runs detached from any
+// one client's request so that a disconnect does not fail the others.
+const searchFlightTimeout = 10 * time.Second
+
+type searchOutcome struct {
+	res      search.Result
+	degraded bool
 }
 
 func (s *Server) Router() *gin.Engine {
@@ -212,6 +226,27 @@ func (s *Server) search(c *gin.Context) {
 	}
 	metrics.CacheResults.WithLabelValues("miss").Inc()
 
+	// When a popular cache entry expires, every request for it misses at once
+	// and would each run the same (often expensive) search: a cache stampede.
+	// Identical requests share one search; the first one fills the cache.
+	v, err, shared := s.flight.Do(key, func() (any, error) {
+		fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), searchFlightTimeout)
+		defer cancel()
+		return s.runSearch(fctx, key, p)
+	})
+	if err != nil {
+		internalError(c, err)
+		return
+	}
+	if shared {
+		metrics.CoalescedSearches.Inc()
+	}
+	c.Header("X-Cache", "MISS")
+	c.JSON(http.StatusOK, v.(searchOutcome).res)
+}
+
+// runSearch embeds the query if needed, searches and caches complete results.
+func (s *Server) runSearch(ctx context.Context, key string, p search.Params) (searchOutcome, error) {
 	degraded := false
 	if p.NeedsVector() {
 		if vector, err := s.embedQuery(ctx, p.Query); err != nil {
@@ -224,10 +259,9 @@ func (s *Server) search(c *gin.Context) {
 		}
 	}
 
-	res, err = s.Search.Search(ctx, p)
+	res, err := s.Search.Search(ctx, p)
 	if err != nil {
-		internalError(c, err)
-		return
+		return searchOutcome{}, err
 	}
 	metrics.SearchTook.WithLabelValues("search").Observe(float64(res.TookMS) / 1000)
 	if res.Partial {
@@ -239,8 +273,7 @@ func (s *Server) search(c *gin.Context) {
 	if s.Cache != nil && !degraded && !res.Partial {
 		s.Cache.Set(ctx, key, res)
 	}
-	c.Header("X-Cache", "MISS")
-	c.JSON(http.StatusOK, res)
+	return searchOutcome{res: res, degraded: degraded}, nil
 }
 
 func (s *Server) suggest(c *gin.Context) {

@@ -59,6 +59,7 @@ func main() {
 	jsonOut := flag.String("json", "", "write the report to this file")
 	list := flag.Bool("list", false, "list workloads and exit")
 	timelineEvery := flag.Duration("timeline", 0, "also print requests, errors and P95 per interval (e.g. 1s)")
+	esTimeout := flag.String("timeout", "", `per-request Elasticsearch "timeout" added to es searches, e.g. 200ms (timed-out responses count as errors)`)
 	flag.Parse()
 
 	if *baseURL == "" {
@@ -67,13 +68,13 @@ func main() {
 			*baseURL = "http://localhost:8080"
 		}
 	}
-	if err := run(*target, *baseURL, cfg.ElasticsearchURL, *alias, *workloads, *conc, *duration, *warmup, *seed, *maxErr, *jsonOut, *list, *timelineEvery); err != nil {
+	if err := run(*target, *baseURL, cfg.ElasticsearchURL, *alias, *workloads, *conc, *duration, *warmup, *seed, *maxErr, *jsonOut, *list, *timelineEvery, *esTimeout); err != nil {
 		slog.Error("bench failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(target, baseURL, esURL, alias, workloads, concList string, duration, warmup time.Duration, seed uint64, maxErr float64, jsonOut string, list bool, timelineEvery time.Duration) error {
+func run(target, baseURL, esURL, alias, workloads, concList string, duration, warmup time.Duration, seed uint64, maxErr float64, jsonOut string, list bool, timelineEvery time.Duration, esTimeout string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -94,7 +95,7 @@ func run(target, baseURL, esURL, alias, workloads, concList string, duration, wa
 	if err != nil && !list {
 		return fmt.Errorf("read index stats for %q (run datagen first): %w", alias, err)
 	}
-	env := bench.Env{Gen: synth.New(seed, embed.Dim), Docs: int(stats.Docs), Alias: alias}
+	env := bench.Env{Gen: synth.New(seed, embed.Dim), Docs: int(stats.Docs), Alias: alias, Timeout: esTimeout}
 
 	var all []bench.Workload
 	switch target {
