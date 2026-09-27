@@ -29,6 +29,11 @@ var (
 		Help: "Search cache lookups by result (hit / miss).",
 	}, []string{"result"})
 
+	CoalescedSearches = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "atlas_search_coalesced_total",
+		Help: "Searches that shared an identical in-flight Elasticsearch request instead of sending their own (cache stampede protection).",
+	})
+
 	PartialResults = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "atlas_search_partial_results_total",
 		Help: "Searches answered with results from only some shards (a shard had no live copy, or timed out).",

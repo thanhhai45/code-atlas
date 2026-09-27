@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -211,4 +214,60 @@ func TestPartialResultsAreServedButNotCached(t *testing.T) {
 	if fs.calls != 2 {
 		t.Fatalf("expected both requests to reach Elasticsearch, got %d", fs.calls)
 	}
+}
+
+// slowSearch takes a while and counts the Elasticsearch requests it receives.
+type slowSearch struct {
+	fakeSearch
+	n atomic.Int64
+}
+
+func (f *slowSearch) Search(_ context.Context, p search.Params) (search.Result, error) {
+	f.n.Add(1)
+	time.Sleep(100 * time.Millisecond)
+	return search.Result{Total: 1, Hits: []search.Hit{{ID: 1}}}, nil
+}
+
+func TestIdenticalConcurrentSearchesShareOneRequest(t *testing.T) {
+	fs := &slowSearch{}
+	s := &Server{Repos: fakeRepos{}, Search: fs, Cache: &syncCache{m: map[string][]byte{}}}
+	r := s.Router()
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if w := do(t, r, "/search?q=orm"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"total":1`) {
+				t.Errorf("every caller must get the shared result: %d %s", w.Code, w.Body)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := fs.n.Load(); got != 1 {
+		t.Fatalf("20 identical concurrent searches sent %d Elasticsearch requests, want 1", got)
+	}
+	// Different parameters are different searches.
+	do(t, r, "/search?q=orm&language=Go")
+	if got := fs.n.Load(); got != 2 {
+		t.Fatalf("a different search must not share the result, requests=%d", got)
+	}
+}
+
+// syncCache is memCache safe for concurrent use.
+type syncCache struct {
+	mu sync.Mutex
+	m  map[string][]byte
+}
+
+func (c *syncCache) Ping(context.Context) error { return nil }
+func (c *syncCache) Get(_ context.Context, k string, out any) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	b, ok := c.m[k]
+	return ok && json.Unmarshal(b, out) == nil
+}
+func (c *syncCache) Set(_ context.Context, k string, v any) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.m[k], _ = json.Marshal(v)
 }

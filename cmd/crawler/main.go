@@ -123,6 +123,13 @@ func run(o options) error {
 	}
 	slog.Info("crawl finished", "fetched", run.Fetched, "indexed", run.Indexed, "failed", run.Failed,
 		"duration", time.Since(start).Round(time.Millisecond))
+	if err == nil && run.Failed > 0 {
+		// PostgreSQL has every repository, the index does not: search is now
+		// stale for these. Fail loudly so a scheduler notices (failure lab: a
+		// flood-stage disk block made every write fail with exit status 0).
+		return fmt.Errorf("%d of %d repositories are in PostgreSQL but not in the search index; "+
+			"fix Elasticsearch (see the warnings above), then run crawler -reindex", run.Failed, run.Fetched)
+	}
 	return err
 }
 

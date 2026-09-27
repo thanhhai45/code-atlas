@@ -33,6 +33,10 @@ type Env struct {
 	Gen   *synth.Generator
 	Docs  int    // documents in the index (for picking existing names)
 	Alias string // Elasticsearch alias for the "es" target
+	// Timeout, when set, is added to every Elasticsearch search body as the
+	// per-request "timeout" (e.g. "200ms"): shards stop collecting when it
+	// runs out and the response is marked timed_out with partial results.
+	Timeout string
 }
 
 func (e Env) topicWords(r *rand.Rand, n int) string {
@@ -58,6 +62,9 @@ func typo(r *rand.Rand, w string) string {
 }
 
 func (e Env) esSearch(body map[string]any) Request {
+	if e.Timeout != "" {
+		body["timeout"] = e.Timeout
+	}
 	buf, _ := json.Marshal(body)
 	return Request{Method: "POST", Path: "/" + url.PathEscape(e.Alias) + "/_search", Body: buf}
 }

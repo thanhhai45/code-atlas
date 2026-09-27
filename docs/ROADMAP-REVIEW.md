@@ -105,12 +105,12 @@ swap alias atomically (đã test thực tế khi đổi mapping).
 | 10 | `cmd/datagen` (dữ liệu tổng hợp: Pareto stars, Zipf topics, vector theo cụm) + `cmd/bench` (16 workload, P50/P95/P99, QPS, error rate); baseline 100K và 1M docs; tìm và sửa highlight làm chậm `/search` 3× — xem `docs/experiments/05` | ✅ |
 | 11 | So sánh 1/3/5 primary shard trên 1M docs (`datagen -shards`, `-force-merge`): 3 shard giảm ~2× độ trễ `/search` và aggregations khi còn core rảnh, nhưng giảm throughput query rẻ khi bão hoà; phát hiện concurrent segment search (8.12+) đã song song hoá query có score ngay trong 1 shard — xem `docs/experiments/06`. Replica để lại Phase 12 (cần nhiều node) | ✅ (1 node) |
 | 12 | Cluster 3 node (Docker Compose, mỗi node 1 CPU): 3 node ≈ 3× throughput của 1 node; so sánh layout p1r2 / p3r0 / p3r1 / p3r2; replica sau khi load nhanh hơn 1.5× — xem `docs/experiments/07` | ✅ |
-| 13 | Node failure (một phần Failure Lab): kill data node / master khi đang chịu tải, có replica thì client không lỗi; không replica thì cluster red và ES trả HTTP 200 với kết quả thiếu → API giờ đánh dấu `partial` và không cache; versioned index + alias swap reindex (giữ replica, chờ green, chặn index nhỏ bất thường, catch-up) | 🟡 (còn high CPU/heap, disk pressure, slow query, reindex lớn) | + alias swap reindex | ✅ (sớm) |
+| 13 | Failure Lab: node/master failure, cluster red (`docs/experiments/07`); request đắt làm chậm search người khác, cache stampede (API gộp request trùng: 80 → 6 search), slow log, OOM do aggregation khi nâng `max_buckets`, disk flood stage (crawler giờ báo lỗi thay vì exit 0), unassigned shard + `make diagnose`; runbook trong `docs/incidents/` (`docs/experiments/08`); reindex an toàn | ✅ (reindex 50M docs chưa làm) |
 | 14 | Prometheus metrics trong API | 🟡 (chưa có Grafana) |
 
 Việc tiếp theo đề xuất: (1) crawl 10K repo thật với token rồi mở rộng judgment list, (2) tune lại trọng số
 business signals và semantic/hybrid trên dữ liệu thật (chấm pool trước khi đọc số), (3) viết kết quả cho
-`docs/experiments/01-fundamentals.md`, (4) phần còn lại của Failure Lab (high CPU/heap, disk pressure, slow
-query), (5) giảm chi phí mỗi query ở 1M (score ít field hơn, cache facet). Đã xong: API biết nhiều node
+`docs/experiments/01-fundamentals.md`, (4) giảm chi phí mỗi query ở 1M (score ít field hơn, tính trước facet của
+query rỗng), (5) Phase 14: Grafana dashboard + alert cho các metric trong runbook. Đã xong: API biết nhiều node
 Elasticsearch (nhiều URL + failover), `crawler -reindex` giữ layout shard/replica, chờ green, kiểm tra số document
 trước khi swap alias và catch-up các ghi trong lúc reindex.

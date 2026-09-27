@@ -1,4 +1,4 @@
-.PHONY: help up down logs seed crawl reindex rankeval rankeval-semantic datagen bench cluster-up cluster-down failover test test-integration lint build dev-api dev-web
+.PHONY: help up down logs seed crawl reindex rankeval rankeval-semantic datagen bench cluster-up cluster-down failover diagnose test test-integration lint build dev-api dev-web
 
 CRAWL_MIN_STARS ?= 1000
 CRAWL_MAX ?= 10000
@@ -49,6 +49,9 @@ cluster-up: ## Start the 3-node Elasticsearch cluster (stop the app stack's elas
 
 cluster-down: ## Stop the 3-node cluster and delete its data
 	docker compose $(CLUSTER_FILES) down -v
+
+diagnose: ## Read-only health report: nodes, red/yellow indices, write blocks, why shards are unassigned
+	scripts/cluster-diagnose.sh
 
 failover: ## Kill es03 under load and record client errors and cluster health (needs make cluster-up && make datagen BENCH_REPLICAS=1)
 	scripts/cluster-failover.sh -a repositories_bench -n es03 -k 20 -r 25 -d 110 -o failover-results
