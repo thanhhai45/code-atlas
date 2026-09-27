@@ -73,3 +73,34 @@ func TestUpsertMovesNameToNewID(t *testing.T) {
 		t.Errorf("idempotent re-run: displaced=%v err=%v", displaced, err)
 	}
 }
+
+func TestStreamRepositoriesSyncedSince(t *testing.T) {
+	s := openTestStore(t)
+	ctx := context.Background()
+	const before, after = 990_000_011, 990_000_012
+	t.Cleanup(func() {
+		_, _ = s.pool.Exec(ctx, `DELETE FROM repositories WHERE github_id IN ($1, $2)`, before, after)
+	})
+	if _, err := s.UpsertRepositories(ctx, []model.Repository{testRepo(before, "it-test/before")}); err != nil {
+		t.Fatal(err)
+	}
+	since, err := s.Now(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.UpsertRepositories(ctx, []model.Repository{testRepo(after, "it-test/after")}); err != nil {
+		t.Fatal(err)
+	}
+	var got []int64
+	err = s.StreamRepositoriesSyncedSince(ctx, since, 100, func(batch []model.Repository) error {
+		for _, r := range batch {
+			if r.ID == before || r.ID == after {
+				got = append(got, r.ID)
+			}
+		}
+		return nil
+	})
+	if err != nil || !slices.Equal(got, []int64{after}) {
+		t.Fatalf("rows synced since %v: %v (err %v), want only %d", since, got, err, after)
+	}
+}

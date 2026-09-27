@@ -106,6 +106,10 @@ jobs:
       - run: go run ./cmd/crawler -seed testdata/seed_repositories.json
         env:
           EMBEDDINGS_URL: http://localhost:8000
+      - name: Zero-downtime reindex (rankeval below then runs on the rebuilt index)
+        run: go run ./cmd/crawler -reindex
+        env:
+          EMBEDDINGS_URL: http://localhost:8000
       - run: go run ./cmd/rankeval -v -min-ndcg 0.95 -min-recall 0.80
       - name: Integration tests (search_after, semantic and hybrid; PostgreSQL upserts)
         run: go test -count=1 -tags integration ./internal/search/ ./internal/store/

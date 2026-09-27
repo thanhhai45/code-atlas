@@ -189,10 +189,21 @@ func (s *Store) ListRepositories(ctx context.Context, limit, offset int) ([]mode
 // StreamRepositories walks the whole table in primary-key order (keyset pagination,
 // not OFFSET) and hands batches to fn. Used to rebuild the search index.
 func (s *Store) StreamRepositories(ctx context.Context, batchSize int, fn func([]model.Repository) error) error {
+	return s.streamRepositories(ctx, time.Time{}, batchSize, fn)
+}
+
+// StreamRepositoriesSyncedSince streams the rows written at or after since
+// (synced_at, set by every upsert), e.g. to catch up on crawler writes made
+// while a reindex was running.
+func (s *Store) StreamRepositoriesSyncedSince(ctx context.Context, since time.Time, batchSize int, fn func([]model.Repository) error) error {
+	return s.streamRepositories(ctx, since, batchSize, fn)
+}
+
+func (s *Store) streamRepositories(ctx context.Context, since time.Time, batchSize int, fn func([]model.Repository) error) error {
 	var after int64 = -1
 	for {
 		rows, err := s.pool.Query(ctx, `SELECT `+selectColumns+` FROM repositories
-			WHERE github_id > $1 ORDER BY github_id LIMIT $2`, after, batchSize)
+			WHERE github_id > $1 AND synced_at >= $3 ORDER BY github_id LIMIT $2`, after, batchSize, since)
 		if err != nil {
 			return err
 		}
@@ -217,6 +228,14 @@ func (s *Store) StreamRepositories(ctx context.Context, batchSize int, fn func([
 		}
 		after = batch[len(batch)-1].ID
 	}
+}
+
+// Now returns the database clock, the one synced_at is written with, so that
+// comparisons with synced_at do not depend on this machine's clock.
+func (s *Store) Now(ctx context.Context) (time.Time, error) {
+	var now time.Time
+	err := s.pool.QueryRow(ctx, `SELECT now()`).Scan(&now)
+	return now, err
 }
 
 type CrawlRun struct {

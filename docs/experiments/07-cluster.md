@@ -140,8 +140,8 @@ returned partial results *after* the client's one retry on another node.
   queries, `1 primary + 2 replicas` gives up to 1.8× the throughput of cheap queries (`fuzzy` 924 vs 505 QPS) but 2–3× the latency of
   aggregations and `/search`; `3 primaries + 2 replicas` improves the tail a little more at 3× the disk.
 - **Build replicas after bulk loads**: 87 s instead of 133 s for 1M documents. `datagen -replicas N` does this.
-  `crawler -reindex` creates the new index with 0 replicas; a production reindex should add replicas and wait for
-  green before swapping the alias.
+  `crawler -reindex` does the same: it loads the new index without replicas, adds the live index's replica count,
+  waits for green and only then swaps the alias (it aborts, alias unchanged, if the replicas cannot be allocated).
 - **Keep `delayed_timeout` above the node restart time.** Here a restart takes ~37 s against the 60 s default. For
   planned rolling restarts, set `cluster.routing.allocation.enable: primaries` first, so the cluster does not start
   copying data during the restart.
